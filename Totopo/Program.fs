@@ -16,7 +16,7 @@ let serverConfig cancellationToken httpPort =
         Path.Combine(Directory.GetCurrentDirectory(), "resources", "totopo")
 
     { defaultConfig with
-          bindings = [ HttpBinding.create HTTP IPAddress.Loopback httpPort ]
+          bindings = [ HttpBinding.create HTTP IPAddress.Any httpPort ]
           cancellationToken = cancellationToken
           logger = logger
           homeFolder = Some staticFilesDirectory }

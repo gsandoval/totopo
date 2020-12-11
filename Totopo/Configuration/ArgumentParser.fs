@@ -2,6 +2,7 @@ namespace Totopo.Configuration
 
 open Argu
 open Suave
+open System.IO
 open System.Net
 open System.Reflection
 
@@ -23,9 +24,12 @@ module ArgumentParser =
         let assemblyPath = assembly.Location
         let fullApplicationConfigPath = assemblyPath.[0..assemblyPath.Length-5] + ".config"
         let programName = assembly.FullName
-        let configurationReader = ConfigurationReader.FromAppSettingsFile(fullApplicationConfigPath)
+        let configurationReader =
+            match File.Exists(fullApplicationConfigPath) with
+            | true -> ConfigurationReader.FromAppSettingsFile(fullApplicationConfigPath)
+            | false -> ConfigurationReader.FromAppSettings()
         let argumentParser = ArgumentParser.Create<CliArguments>(programName = programName)
-        let results = argumentParser.Parse(argv, ignoreUnrecognized = true, configurationReader = configurationReader)
+        let results = argumentParser.Parse(argv, configurationReader = configurationReader, ignoreUnrecognized = true)
         let httpPort = results.GetResult(CliArguments.HttpPort)
         let totopoResourcesPath = results.GetResult(CliArguments.TotopoResourcesPath)
         let applicationResourcesPath = results.GetResult(CliArguments.ApplicationResourcesPath)
