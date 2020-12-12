@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1-alpine AS build
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1 AS build
 
 WORKDIR /stage
 COPY Totopo Totopo
@@ -11,12 +11,10 @@ RUN dotnet publish -c Release -o out
 
 COPY scripts/docker/container-totopo.sh out/
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:3.1 AS runtime
 WORKDIR /app
 
 COPY --from=build /app/out ./
 COPY resources/ ./resources
-
-RUN apk add strace
 
 ENTRYPOINT ["/app/container-totopo.sh"]
