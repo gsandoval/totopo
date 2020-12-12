@@ -17,4 +17,6 @@ WORKDIR /app
 COPY --from=build /app/out ./
 COPY resources/ ./resources
 
+RUN apk add strace
+
 ENTRYPOINT ["/app/container-totopo.sh"]

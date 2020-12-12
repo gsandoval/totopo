@@ -21,7 +21,6 @@ module TemplateServing =
             dir + fileName
 
         let readFile filePath =
-            printfn "filePath: %O" filePath
             match File.Exists(filePath) with
             | false -> None
             | true -> FileBytes(File.ReadAllText(filePath)) |> Some
@@ -54,10 +53,8 @@ module TemplateServing =
         let possibleParentPaths: TemplatePath list =
             let path = Option.orElse (Some TemplatePath.empty) referencedBy
             generatePossibleReferencedPaths path.Value
-        printfn "possibleParentPaths: %O" possibleParentPaths
 
         let loadTemplate (found: Template option) (parentPath: TemplatePath): Template option =
-            printfn "found: %O" found
             match found with
             | Some tmpl -> Some tmpl
             | None ->
@@ -65,7 +62,6 @@ module TemplateServing =
                 loader nestedName |> map (fun x -> { TemplatePath = nestedName; TemplateContent = x })
 
         let loadReferencedTemplates (loadedTemplate: LoadedTemplate) =
-            printfn "loadedTemplate: %O" loadedTemplate
             let referenceRegex = Regex @"\{\{>\s*(\S+)\s*\}\}"
             
             let getReferences content =
@@ -132,7 +128,6 @@ module TemplateServing =
     let serveTemplate (loader: TemplateLoader) (context: HttpContext): Async<HttpContext option> =
         async {
             let name = TemplatePath.fromRequest context.request
-            printfn "name: %O" name
 
             return! match evaluateTemplate loader name with
                     | Some rendered -> Successful.OK rendered context
