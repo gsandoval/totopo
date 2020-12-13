@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1 AS build
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 
 WORKDIR /stage
 COPY Totopo Totopo
@@ -6,12 +6,12 @@ COPY Totopo Totopo
 WORKDIR /app
 RUN cp -r /stage/Totopo/* ./
 
-RUN dotnet restore
-RUN dotnet publish -c Release -o out
+RUN dotnet restore -r linux-x64
+RUN dotnet publish -c release -o out -r linux-x64 --self-contained true --no-restore /p:PublishTrimmed=true /p:PublishReadyToRun=true
 
 COPY scripts/docker/container-totopo.sh out/
 
-FROM mcr.microsoft.com/dotnet/runtime:3.1 AS runtime
+FROM  mcr.microsoft.com/dotnet/runtime:5.0-buster-slim-amd64 AS runtime
 WORKDIR /app
 
 COPY --from=build /app/out ./
