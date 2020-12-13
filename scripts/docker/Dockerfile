@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:5.0-focal AS build
 
 WORKDIR /stage
 COPY Totopo Totopo
@@ -11,7 +11,7 @@ RUN dotnet publish -c release -o out -r linux-x64 --self-contained true --no-res
 
 COPY scripts/docker/container-totopo.sh out/
 
-FROM  mcr.microsoft.com/dotnet/runtime:5.0-buster-slim-amd64 AS runtime
+FROM  mcr.microsoft.com/dotnet/runtime:5.0-focal AS runtime
 WORKDIR /app
 
 COPY --from=build /app/out ./
