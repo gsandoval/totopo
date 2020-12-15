@@ -45,13 +45,17 @@ let main argv =
                  RequestErrors.NOT_FOUND "Unsupported request" ]
 
     let listening, server = startWebServerAsync conf app
-    Async.Start(server, cts.Token)
+    let serverTask = Async.StartAsTask(server, Tasks.TaskCreationOptions.None, cts.Token)
 
     listening
     |> Async.RunSynchronously
     |> printfn "start stats: %A"
 
-    Console.Read() |> ignore
+    AppDomain.CurrentDomain.ProcessExit.Add(fun _ ->
+        printfn "Shutting down server."
+        cts.Cancel())
+    
+    serverTask.Wait()
+    printfn "bye bye."
 
-    cts.Cancel()
     0 // return an integer exit code
