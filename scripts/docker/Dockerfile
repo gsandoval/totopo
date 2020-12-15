@@ -17,4 +17,7 @@ WORKDIR /app
 COPY --from=build /app/out ./
 COPY resources/ ./resources
 
+RUN apt-get update -y
+RUN apt-get install -y strace
+
 ENTRYPOINT ["/app/container-totopo.sh"]
