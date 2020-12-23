@@ -15,7 +15,6 @@
 namespace Totopo.Configuration
 
 open Suave
-<<<<<<< HEAD
 
 type LocalResourcePath = LocalResourcePath of string
 
@@ -52,16 +51,3 @@ type Configuration =
     { HttpPort: Sockets.Port
       LocalResources: LocalResourcePaths
       ExternalResources: ExternalResourceUris }
-=======
-open System.IO
-open Totopo.Templates
-
-type Configuration = { HttpPort: Sockets.Port; ApplicationResourcesPath: string; TotopoResourcesPath: string }
-    module Configuration =
-        let templatesDirectories (config: Configuration) =
-            let totopoTemplatesDirectory = Path.Combine(config.TotopoResourcesPath, "templates")
-                                           |> TemplatesDirectory.fromPath
-            let applicationTemplatesDirectory = Path.Combine(config.ApplicationResourcesPath, "templates")
-                                                |> TemplatesDirectory.fromPath
-            [ applicationTemplatesDirectory; totopoTemplatesDirectory ]
->>>>>>> ec8d2e814e32a58300a87afe6be69381e0b7c983
