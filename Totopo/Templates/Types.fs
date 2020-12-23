@@ -2,6 +2,7 @@ namespace Totopo.Templates
 
 open Suave
 open System.IO
+open Totopo.Configuration
 open Totopo.Filesystem
 
 type TemplatePath = private TemplatePath of string
@@ -52,8 +53,13 @@ module TemplatePath =
 type TemplatesDirectory = private TemplatesDirectory of string
 
 module TemplatesDirectory =
-    let fromPath (path: string) =
-        TemplatesDirectory path
+    let fromLocalPath (path: LocalResourcePath) =
+        let templatesPath = Path.Combine(LocalResourcePath.value path, "templates")
+        TemplatesDirectory templatesPath
+
+    let fromBucketUri (uri: BucketBaseUri) =
+        let templatesPath = (BucketBaseUri.path uri) + "templates"
+        TemplatesDirectory templatesPath
 
     let value (TemplatesDirectory str) = str
 
@@ -74,3 +80,5 @@ module TemplateContent =
 type Template =
     { TemplatePath: TemplatePath
       TemplateContent: TemplateContent }
+
+type TemplateLoader = TemplatePath -> TemplateContent option

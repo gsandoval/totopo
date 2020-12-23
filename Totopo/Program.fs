@@ -28,11 +28,18 @@ let main argv =
     let cts = new CancellationTokenSource()
     let conf = serverConfig cts.Token configuration.HttpPort
 
-    let serveApplicationResource = Files.browse configuration.ApplicationResourcesPath
-    let serveTotopoResource = Files.browse configuration.TotopoResourcesPath
-    let serveTemplateFromDisk = Configuration.templatesDirectories configuration
-                                |> TemplateServing.readTemplateFromDisk
-                                |>  TemplateServing.serveTemplate
+    let localResources = configuration.LocalResources
+    let serveApplicationResource = Files.browse (LocalResourcePath.value localResources.ApplicationCustom)
+    let serveTotopoResource = Files.browse (LocalResourcePath.value localResources.Totopo)
+    let localTemplatesDirectories = List.map TemplatesDirectory.fromLocalPath [configuration.LocalResources.ApplicationCustom; configuration.LocalResources.Totopo]
+    let serveTemplateFromDisk = localTemplatesDirectories
+                                |> DiskTemplateLoader.readTemplate
+                                |>  TemplateServing.serveTemplate <| configuration.ExternalResources.CdnBase
+    
+    let remoteTemplatesDirectory = TemplatesDirectory.fromBucketUri configuration.ExternalResources.BucketBase
+    let remoteTemplateLoader = GoogleStorageTemplateLoader.readTemplate configuration.ExternalResources.BucketBase remoteTemplatesDirectory
+    let serveTemplateFromCloudStorage = remoteTemplateLoader
+                                        |>  TemplateServing.serveTemplate <| configuration.ExternalResources.CdnBase
 
     let app =
         choose [ Filters.GET
@@ -40,6 +47,7 @@ let main argv =
                          [ Filters.pathRegex ".*"
                            >=> choose [ Filters.pathRegex "/static/.*" >=> serveApplicationResource
                                         Filters.pathRegex "/static/.*" >=> serveTotopoResource
+                                        serveTemplateFromCloudStorage
                                         serveTemplateFromDisk
                                         RequestErrors.NOT_FOUND "Not found" ] ]
                  RequestErrors.NOT_FOUND "Unsupported request" ]

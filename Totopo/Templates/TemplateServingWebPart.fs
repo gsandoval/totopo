@@ -5,38 +5,11 @@ open Stubble.Core.Loaders
 open Stubble.Core.Settings
 open Suave
 open System
-open System.IO
 open System.Text.RegularExpressions
 open FSharpPlus.Operators
-open Totopo.Filesystem
+open Totopo.Configuration
 
 module TemplateServing =
-    type TemplateLoader = TemplatePath -> TemplateContent option
-
-    let readTemplateFromDisk (directories: TemplatesDirectory list) (name: TemplatePath) =
-        let resolveAbsoluteTemplatePath (directory: TemplatesDirectory) (templateName: TemplatePath) =
-            let fileName =
-                TemplatePath.value templateName + ".mustache"
-            let dir = TemplatesDirectory.value directory
-            dir + fileName
-
-        let readFile filePath =
-            match File.Exists(filePath) with
-            | false -> None
-            | true -> FileBytes(File.ReadAllText(filePath)) |> Some
-
-        let readTemplateContent =
-            readFile >=> (TemplateContent.fromBytes >> Some)
-
-        let findFirst (found: TemplateContent option) (directory: TemplatesDirectory) =
-            match found with
-            | Some c -> Some c
-            | None ->
-                resolveAbsoluteTemplatePath directory name
-                |> readTemplateContent
-
-        fold findFirst None directories
-
     type LoadedTemplate =
         { Template: Template
           ReferencedTemplates: Template list }
@@ -96,10 +69,11 @@ module TemplateServing =
         |> map (fun x -> {Template = x; ReferencedTemplates = []})
         |> map loadReferencedTemplates
 
-    type View() =
+    type View(cdnBase: CdnBaseUrl) =
         member this.StaticResource = Func<string, obj>((fun x -> x :> obj))
+        member this.static_resource = Func<string, obj>((fun x -> CdnBaseUrl.value cdnBase + x :> obj))
 
-    let evaluateTemplate (loader: TemplateLoader) (name: TemplatePath): string option =
+    let evaluateTemplate (loader: TemplateLoader) (cdnBase: CdnBaseUrl) (name: TemplatePath): string option =
         let response = readAllTemplates loader name None
         match response with
         | Some template ->
@@ -122,14 +96,14 @@ module TemplateServing =
             let content =
                 TemplateContent.value template.Template.TemplateContent
 
-            stubble.Render(content, View()) |> Some
+            stubble.Render(content, View(cdnBase)) |> Some
         | None -> None
 
-    let serveTemplate (loader: TemplateLoader) (context: HttpContext): Async<HttpContext option> =
+    let serveTemplate (loader: TemplateLoader) (cdnBase: CdnBaseUrl) (context: HttpContext): Async<HttpContext option> =
         async {
             let name = TemplatePath.fromRequest context.request
 
-            return! match evaluateTemplate loader name with
+            return! match evaluateTemplate loader cdnBase name with
                     | Some rendered -> Successful.OK rendered context
                     | None -> Async.result None
         }

@@ -6,17 +6,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Filesystem\Types.fs" />
-    <Compile Include="Templates\Types.fs" />
-    <Compile Include="Templates\TemplateServingWebPart.fs" />
     <Compile Include="Configuration\Types.fs" />
     <Compile Include="Configuration\ArgumentParser.fs" />
+    <Compile Include="Filesystem\Types.fs" />
+    <Compile Include="Filesystem\DiskReader.fs" />
+    <Compile Include="Filesystem\GoogleStorageReader.fs" />
+    <Compile Include="Templates\Types.fs" />
+    <Compile Include="Templates\DiskTemplateLoader.fs" />
+    <Compile Include="Templates\GoogleStorageTemplateLoader.fs" />
+    <Compile Include="Templates\TemplateServingWebPart.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.1.1" />
     <PackageReference Include="FSharpPlus" Version="1.2.0-CI01568" />
+    <PackageReference Include="Google.Cloud.Storage.V1" Version="3.3.0" />
     <PackageReference Include="Stubble.Core" Version="1.9.3" />
     <PackageReference Include="Suave" Version="2.6.0-beta" />
   </ItemGroup>
