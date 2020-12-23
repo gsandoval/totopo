@@ -25,11 +25,9 @@ type BucketName =
 module GoogleStorageReader =
     let readFile (bucket: BucketBaseUri) (filePath: FilePath) =
         let filePathStr = FilePath.value filePath
-        
-        let credential = GoogleCredential.GetApplicationDefault()
-        let storage = StorageClient.Create(credential)
-        
         try
+            let credential = GoogleCredential.GetApplicationDefault()
+            let storage = StorageClient.Create(credential)
             let getOptions = GetObjectOptions()
             let readObject = storage.GetObject(BucketBaseUri.name bucket, filePathStr, getOptions)
             let downloadOptions = DownloadObjectOptions()

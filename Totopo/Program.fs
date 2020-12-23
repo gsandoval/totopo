@@ -76,8 +76,11 @@ let main argv =
     AppDomain.CurrentDomain.ProcessExit.Add(fun _ ->
         printfn "Shutting down server."
         cts.Cancel())
+ 
+    System.Console.CancelKeyPress.Add(fun _ ->
+        printfn "Shutting down server."
+        cts.Cancel())
 
     serverTask.Wait()
-    printfn "bye bye."
 
     0 // return an integer exit code
