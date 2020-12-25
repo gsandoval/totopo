@@ -14,11 +14,20 @@
 
 namespace Totopo.Filesystem
 
+open FSharpPlus.Operators
 open System.IO
 
 module DiskReader =
-    let readFile (filePath: FilePath) =
-        let filePathStr = FilePath.value filePath
-        match File.Exists(filePathStr) with
-        | false -> None
-        | true -> FileBytes(File.ReadAllText(filePathStr)) |> Some
+    let readFile (directories: ResourceDirectory list) (filename: FilePath) =
+        let filenameStr = FilePath.value filename
+        let readFileFromFirstDirectoryMatch (found: FileBytes option) (directory: ResourceDirectory) =
+            match found with
+            | Some c -> Some c
+            | None ->
+                let dir = ResourceDirectory.value directory
+                let potentialPath  = dir + filenameStr
+                match File.Exists(potentialPath) with
+                | false -> None
+                | true -> FileBytes(File.ReadAllText(potentialPath)) |> Some
+
+        fold readFileFromFirstDirectoryMatch None directories

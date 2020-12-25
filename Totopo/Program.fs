@@ -21,6 +21,7 @@ open Suave
 open Suave.Logging
 open Suave.Operators
 open Totopo.Configuration
+open Totopo.Filesystem
 open Totopo.Templates
 
 let logger = Targets.create Verbose [||]
@@ -42,18 +43,20 @@ let main argv =
     let cts = new CancellationTokenSource()
     let conf = serverConfig cts.Token configuration.HttpPort
 
+    let templateResourceDir = ResourceDirectory.fromLocalPath "templates"
+    let localTemplatesDirectories = List.map templateResourceDir [configuration.LocalResources.ApplicationCustom; configuration.LocalResources.Totopo]
+    let diskFileReader = DiskReader.readFile localTemplatesDirectories
+    let diskTemplateLoader = ComposeableTemplateLoader.readTemplate diskFileReader
+    let serveTemplateFromDisk = TemplateServing.serveTemplate diskTemplateLoader configuration.ExternalResources.CdnBase
+    
+    let remoteTemplatesDirectory = ResourceDirectory.fromBucketUri "templates" configuration.ExternalResources.BucketBase
+    let remoteFileReader = GoogleStorageReader.readFile remoteTemplatesDirectory configuration.ExternalResources.BucketBase
+    let remoteTemplateLoader = ComposeableTemplateLoader.readTemplate remoteFileReader
+    let serveTemplateFromCloudStorage = TemplateServing.serveTemplate remoteTemplateLoader configuration.ExternalResources.CdnBase
+
     let localResources = configuration.LocalResources
     let serveApplicationResource = Files.browse (LocalResourcePath.value localResources.ApplicationCustom)
     let serveTotopoResource = Files.browse (LocalResourcePath.value localResources.Totopo)
-    let localTemplatesDirectories = List.map TemplatesDirectory.fromLocalPath [configuration.LocalResources.ApplicationCustom; configuration.LocalResources.Totopo]
-    let serveTemplateFromDisk = localTemplatesDirectories
-                                |> DiskTemplateLoader.readTemplate
-                                |>  TemplateServing.serveTemplate <| configuration.ExternalResources.CdnBase
-    
-    let remoteTemplatesDirectory = TemplatesDirectory.fromBucketUri configuration.ExternalResources.BucketBase
-    let remoteTemplateLoader = GoogleStorageTemplateLoader.readTemplate configuration.ExternalResources.BucketBase remoteTemplatesDirectory
-    let serveTemplateFromCloudStorage = remoteTemplateLoader
-                                        |>  TemplateServing.serveTemplate <| configuration.ExternalResources.CdnBase
 
     let app =
         choose [ Filters.GET

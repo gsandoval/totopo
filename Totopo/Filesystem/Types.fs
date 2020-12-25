@@ -14,6 +14,9 @@
 
 namespace Totopo.Filesystem
 
+open System.IO
+open Totopo.Configuration
+
 type FileBytes =
     | FileBytes of string
 
@@ -27,3 +30,16 @@ module FilePath =
     let value (FilePath path) = path
 
 type FileReader = FilePath -> FileBytes option
+
+type ResourceDirectory = private ResourceDirectory of string
+
+module ResourceDirectory =
+    let fromLocalPath (subPath: string) (path: LocalResourcePath) =
+        let templatesPath = Path.Combine(LocalResourcePath.value path, subPath)
+        ResourceDirectory templatesPath
+
+    let fromBucketUri (subPath: string) (uri: BucketBaseUri) =
+        let templatesPath = (BucketBaseUri.path uri) + subPath
+        ResourceDirectory templatesPath
+
+    let value (ResourceDirectory str) = str

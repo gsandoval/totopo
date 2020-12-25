@@ -15,14 +15,10 @@
 namespace Totopo.Templates
 
 open FSharpPlus.Operators
-open Totopo.Configuration
 open Totopo.Filesystem
 
-module GoogleStorageTemplateLoader =
-    let readTemplate (bucketName: BucketBaseUri) (templatesDirectory: TemplatesDirectory) (name: TemplatePath) =
-        let readTemplateContent =
-            (GoogleStorageReader.readFile bucketName) >=> (TemplateContent.fromBytes >> Some)
-
-        let fileName = TemplatesDirectory.value templatesDirectory + TemplatePath.value name + ".mustache"
-        let path = FilePath fileName
-        readTemplateContent path
+module ComposeableTemplateLoader =
+    let readTemplate (fileReader: FileReader) (name: TemplatePath) =
+        let templateContentReader = fileReader >=> (TemplateContent.fromBytes >> Some)
+        let filename = FilePath(TemplatePath.value name + ".mustache")
+        templateContentReader filename

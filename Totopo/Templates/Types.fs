@@ -64,19 +64,6 @@ module TemplatePath =
         let nameAsStr = value name
         fromString (parentAsStr + "/" + nameAsStr)
 
-type TemplatesDirectory = private TemplatesDirectory of string
-
-module TemplatesDirectory =
-    let fromLocalPath (path: LocalResourcePath) =
-        let templatesPath = Path.Combine(LocalResourcePath.value path, "templates")
-        TemplatesDirectory templatesPath
-
-    let fromBucketUri (uri: BucketBaseUri) =
-        let templatesPath = (BucketBaseUri.path uri) + "templates"
-        TemplatesDirectory templatesPath
-
-    let value (TemplatesDirectory str) = str
-
 type TemplateContent = private TemplateContent of string
 
 // Introduce FileBytes to push reading from disk out of this type
