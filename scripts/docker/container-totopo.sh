@@ -24,5 +24,5 @@ TEMPLATE_CACHING_TIMEOUT_VAR=${TEMPLATE_CACHING_TIMEOUT:-00:05:00}
     --totopo-resources-path /app/resources/totopo \
     --application-resources-path /app/resources/hackergs \
     --resources-bucket-base-uri $RESOURCES_BUCKET_BASE_URI_VAR \
-    --resources-cdn-base-url $RESOURCES_CDN_BASE_URL_VAR
+    --resources-cdn-base-url $RESOURCES_CDN_BASE_URL_VAR \
     --template-caching-timeout ${TEMPLATE_CACHING_TIMEOUT_VAR}
