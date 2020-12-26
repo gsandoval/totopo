@@ -20,31 +20,33 @@ open System.Collections.Concurrent
 type ExpirationPolicy = FileContents -> FileContents option
 
 type TimeExpiringFileCache(ttl: TimeSpan) =
-    let cache = ConcurrentDictionary<FilePath, FileContents>()
-    
+    let cache =
+        ConcurrentDictionary<FilePath, FileContents>()
+
     member this.IsValid(contents: FileContents): FileContents option =
-        match contents.Updated < DateTime.Now - ttl with
+        match contents.LoadedAt < DateTime.Now - ttl with
         | true -> None
         | _ -> Some contents
 
-    member this.Get (key: FilePath): FileContents option =
+    member this.Get(key: FilePath): FileContents option =
         let exists, value = cache.TryGetValue key
+
         match exists with
         | true -> this.IsValid value
         | _ -> None
-    
+
     member this.Add (key: FilePath) (contents: FileContents) =
-        cache.AddOrUpdate(key, contents, fun _ _  -> contents)
+        cache.AddOrUpdate(key, contents, (fun _ _ -> contents))
 
 module CachingFileReader =
-    let create (cache: TimeExpiringFileCache)
-               (fileReader: FileReader)
-               =
+    let create (cache: TimeExpiringFileCache) (fileReader: FileReader) =
         fun (filename: FilePath) ->
             let cached = cache.Get filename
-            let result = match cached with
-                            | None -> fileReader filename
-                            | _ -> cached
+
+            let result =
+                match cached with
+                | None -> fileReader filename
+                | _ -> cached
 
             match result with
             | Some c -> cache.Add filename c |> Some

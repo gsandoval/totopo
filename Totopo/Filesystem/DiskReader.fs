@@ -20,16 +20,20 @@ open System.IO
 module DiskReader =
     let readFile (directories: ResourceDirectory list) (filename: FilePath) =
         let filenameStr = FilePath.value filename
+
         let readFileFromFirstDirectoryMatch (found: FileContents option) (directory: ResourceDirectory) =
             match found with
             | Some c -> Some c
             | None ->
                 let dir = ResourceDirectory.value directory
-                let potentialPath  = dir + filenameStr
+                let potentialPath = dir + filenameStr
+
                 match File.Exists(potentialPath) with
                 | false -> None
                 | true ->
-                    let fileText = File.ReadAllText(potentialPath)
-                    FileContents.fromText fileText System.DateTime.Now |> Some
+                    let fileText = File.ReadAllText potentialPath
+
+                    FileContents.fromText fileText System.DateTime.Now System.DateTime.Now
+                    |> Some
 
         fold readFileFromFirstDirectoryMatch None directories

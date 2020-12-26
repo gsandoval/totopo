@@ -18,21 +18,25 @@ open System
 open System.IO
 open Totopo.Configuration
 
-type FileContents = {
-    Text: string
-    Updated: DateTime}
+type FileContents =
+    { Text: string
+      LoadedAt: DateTime
+      UpdatedAt: DateTime }
 
 module FileContents =
     let text (contents: FileContents) = contents.Text
 
-    let fromBytes (bytes: byte array) (updated: DateTime) =
-        { Text = System.Text.Encoding.Default.GetString(bytes); Updated = updated }
-    
-    let fromText (text: string) (updated: DateTime) =
-        { Text = text; Updated = updated }
+    let fromBytes (bytes: byte array) (updated: DateTime) (loaded: DateTime) =
+        { Text = System.Text.Encoding.Default.GetString(bytes)
+          UpdatedAt = updated
+          LoadedAt = loaded }
 
-type FilePath =
-    | FilePath of string
+    let fromText (text: string) (updated: DateTime) (loaded: DateTime) =
+        { Text = text
+          UpdatedAt = updated
+          LoadedAt = loaded }
+
+type FilePath = FilePath of string
 
 module FilePath =
     let value (FilePath path) = path
@@ -43,7 +47,9 @@ type ResourceDirectory = private ResourceDirectory of string
 
 module ResourceDirectory =
     let fromLocalPath (subPath: string) (path: LocalResourcePath) =
-        let templatesPath = Path.Combine(LocalResourcePath.value path, subPath)
+        let templatesPath =
+            Path.Combine(LocalResourcePath.value path, subPath)
+
         ResourceDirectory templatesPath
 
     let fromBucketUri (subPath: string) (uri: BucketBaseUri) =

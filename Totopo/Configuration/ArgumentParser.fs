@@ -25,11 +25,16 @@ module ArgumentParser =
     [<GatherAllSources>]
     type CliArguments =
         | [<CustomAppSettings "HttpPort"; CustomCommandLine "--http-port">] HttpPort of port: Sockets.Port
-        | [<CustomAppSettings "TotopoResourcesPath"; CustomCommandLine "--totopo-resources-path">] TotopoResourcesPath of path: string
-        | [<CustomAppSettings "ApplicationResourcesPath"; CustomCommandLine "--application-resources-path">] ApplicationResourcesPath of path: string
-        | [<CustomAppSettings "ResourcesBucketBaseUri"; CustomCommandLine "--resources-bucket-base-uri">] ResourcesBucketBaseUri of uri: string
-        | [<CustomAppSettings "ResourcesCdnBaseUrl"; CustomCommandLine "--resources-cdn-base-url">] ResourcesCdnBaseUrl of url: string
-        | [<CustomAppSettings "TemplateCachingTimeout"; CustomCommandLine "--template-caching-timeout">] TemplateCachingTimeout of timeout: string
+        | [<CustomAppSettings "TotopoResourcesPath"; CustomCommandLine "--totopo-resources-path">] TotopoResourcesPath of
+            path: string
+        | [<CustomAppSettings "ApplicationResourcesPath"; CustomCommandLine "--application-resources-path">] ApplicationResourcesPath of
+            path: string
+        | [<CustomAppSettings "ResourcesBucketBaseUri"; CustomCommandLine "--resources-bucket-base-uri">] ResourcesBucketBaseUri of
+            uri: string
+        | [<CustomAppSettings "ResourcesCdnBaseUrl"; CustomCommandLine "--resources-cdn-base-url">] ResourcesCdnBaseUrl of
+            url: string
+        | [<CustomAppSettings "TemplateCachingTimeout"; CustomCommandLine "--template-caching-timeout">] TemplateCachingTimeout of
+            timeout: string
 
         interface IArgParserTemplate with
             member s.Usage =
@@ -75,12 +80,17 @@ module ArgumentParser =
         let resourcesCdn =
             CdnBaseUrl(results.GetResult(CliArguments.ResourcesCdnBaseUrl))
 
-        let templateCachingTimeoutStr = results.GetResult(CliArguments.TemplateCachingTimeout)
-        let templateCachingTimeout = TimeSpan.Parse(templateCachingTimeoutStr)
+        let templateCachingTimeoutStr =
+            results.GetResult(CliArguments.TemplateCachingTimeout)
+
+        let templateCachingTimeout =
+            TimeSpan.Parse(templateCachingTimeoutStr)
 
         { HttpPort = httpPort
           LocalResources =
               { ApplicationCustom = applicationCustomResources
                 Totopo = totopoResources }
-          ExternalResources = { BucketBase = resourcesBucket; CdnBase = resourcesCdn }
+          ExternalResources =
+              { BucketBase = resourcesBucket
+                CdnBase = resourcesCdn }
           TemplateCachingTimeout = templateCachingTimeout }
