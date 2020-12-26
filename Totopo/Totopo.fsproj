@@ -9,6 +9,7 @@
     <Compile Include="Configuration\Types.fs" />
     <Compile Include="Configuration\ArgumentParser.fs" />
     <Compile Include="Filesystem\Types.fs" />
+    <Compile Include="Filesystem\CachingFileReader.fs" />
     <Compile Include="Filesystem\DiskReader.fs" />
     <Compile Include="Filesystem\GoogleStorageReader.fs" />
     <Compile Include="Templates\Types.fs" />

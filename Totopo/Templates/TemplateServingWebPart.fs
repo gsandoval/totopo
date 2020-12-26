@@ -46,13 +46,13 @@ module TemplateServing =
             | Some tmpl -> Some tmpl
             | None ->
                 let nestedName = TemplatePath.concat parentPath name
-                loader nestedName |> map (fun x -> { TemplatePath = nestedName; TemplateContent = x })
+                loader nestedName |> map (fun x -> { Path = nestedName; Text = x })
 
         let loadReferencedTemplates (loadedTemplate: LoadedTemplate) =
             let referenceRegex = Regex @"\{\{>\s*(\S+)\s*\}\}"
 
             let getReferences content =
-                let matchReferences = TemplateContent.value >> referenceRegex.Matches
+                let matchReferences = TemplateText.value >> referenceRegex.Matches
                 let matches = matchReferences content
                 let getCaptureGroup index =
                     let item = matches.Item index
@@ -62,21 +62,21 @@ module TemplateServing =
 
             let processCaptureGroup (loaded: LoadedTemplate) (group: Group): LoadedTemplate =
                 let referencedName = TemplatePath.fromString group.Value
-                let referenced = readAllTemplates loader referencedName (Some loaded.Template.TemplatePath)
+                let referenced = readAllTemplates loader referencedName (Some loaded.Template.Path)
                 let childTemplates = map (fun x -> x.Template :: x.ReferencedTemplates) referenced |> Option.orElse (Some []) |> Option.get
                 let joinedTemplated = List.append loaded.ReferencedTemplates childTemplates
                 let updatedContent =
                     match referenced with
-                    | None -> loaded.Template.TemplateContent
+                    | None -> loaded.Template.Text
                     | Some t ->
-                        let realNameStr = TemplatePath.value t.Template.TemplatePath
-                        let replaceContent = TemplateContent.replaceWith loaded.Template.TemplateContent
+                        let realNameStr = TemplatePath.value t.Template.Path
+                        let replaceContent = TemplateText.replaceWith loaded.Template.Text
                         replaceContent group.Index group.Length realNameStr
                 { loaded with
                     ReferencedTemplates = joinedTemplated
-                    Template = { loaded.Template with TemplateContent = updatedContent }}
+                    Template = { loaded.Template with Text = updatedContent }}
 
-            let matches = getReferences loadedTemplate.Template.TemplateContent |> rev
+            let matches = getReferences loadedTemplate.Template.Text |> rev
             fold processCaptureGroup loadedTemplate matches
 
         fold loadTemplate None possibleParentPaths
@@ -92,7 +92,7 @@ module TemplateServing =
         match response with
         | Some template ->
             let templateToTuple template =
-                (TemplatePath.value template.TemplatePath, TemplateContent.value template.TemplateContent)
+                (TemplatePath.value template.Path, TemplateText.value template.Text)
 
             let referencedTemplates =
                 map templateToTuple template.ReferencedTemplates
@@ -108,7 +108,7 @@ module TemplateServing =
                 StubbleBuilder().Configure(Action<RendererSettingsBuilder>(configureStubble)).Build()
 
             let content =
-                TemplateContent.value template.Template.TemplateContent
+                TemplateText.value template.Template.Text
 
             stubble.Render(content, View(cdnBase)) |> Some
         | None -> None

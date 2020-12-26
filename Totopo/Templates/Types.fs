@@ -64,22 +64,22 @@ module TemplatePath =
         let nameAsStr = value name
         fromString (parentAsStr + "/" + nameAsStr)
 
-type TemplateContent = private TemplateContent of string
+type TemplateText = private TemplateText of string
 
 // Introduce FileBytes to push reading from disk out of this type
-module TemplateContent =
-    let fromBytes (fileBytes: FileBytes) =
-        FileBytes.bytes fileBytes |> TemplateContent
+module TemplateText =
+    let fromFileContents (contents: FileContents) =
+        FileContents.text contents |> TemplateText
 
-    let value (TemplateContent str) = str
+    let value (TemplateText str) = str
 
-    let replaceWith (content: TemplateContent) (index: int) (length: int) (updated: string) =
+    let replaceWith (content: TemplateText) (index: int) (length: int) (updated: string) =
         let str = value content
         let updated = str.Substring(0, index) + updated + str.Substring(index + length)
-        TemplateContent updated
+        TemplateText updated
 
 type Template =
-    { TemplatePath: TemplatePath
-      TemplateContent: TemplateContent }
+    { Path: TemplatePath
+      Text: TemplateText }
 
-type TemplateLoader = TemplatePath -> TemplateContent option
+type TemplateLoader = TemplatePath -> TemplateText option

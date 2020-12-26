@@ -33,8 +33,10 @@ module GoogleStorageReader =
             let downloadOptions = DownloadObjectOptions()
             let inMemoryStream = new MemoryStream()
             storage.DownloadObject(readObject, inMemoryStream, downloadOptions)
-            let templateContent = System.Text.Encoding.Default.GetString(inMemoryStream.ToArray())
-            FileBytes templateContent |> Some
+            printfn "downloaded %O" fullPathStr
+            let fileBytes = inMemoryStream.ToArray()
+            let templateContent = FileContents.fromBytes fileBytes System.DateTime.Now
+            templateContent |> Some
         with
             | _ ->
                 None

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 open System
-open System.Net
 open System.IO
+open System.Net
 open System.Reflection
 open System.Threading
 open Suave
@@ -36,6 +36,21 @@ let serverConfig cancellationToken httpPort =
           logger = logger
           homeFolder = Some staticFilesDirectory }
 
+let createLocalDiskTemplateServing (local: LocalResourcePaths) (external: ExternalResourceUris) =
+    let templateResourceDir = ResourceDirectory.fromLocalPath "templates"
+    let localTemplatesDirectories = List.map templateResourceDir [local.ApplicationCustom; local.Totopo]
+    let diskFileReader = DiskReader.readFile localTemplatesDirectories
+    let diskTemplateLoader = ComposeableTemplateLoader.readTemplate diskFileReader
+    TemplateServing.serveTemplate diskTemplateLoader external.CdnBase
+
+let createCloudStorageTemplateServing (external: ExternalResourceUris) =
+    let remoteTemplatesDirectory = ResourceDirectory.fromBucketUri "templates" external.BucketBase
+    let remoteFileReader = GoogleStorageReader.readFile remoteTemplatesDirectory external.BucketBase
+    let cache = TimeExpiringFileCache(TimeSpan.FromMinutes 1.0)
+    let cachingFileReader = CachingFileReader.create cache remoteFileReader
+    let remoteTemplateLoader = ComposeableTemplateLoader.readTemplate cachingFileReader
+    TemplateServing.serveTemplate remoteTemplateLoader external.CdnBase
+
 [<EntryPoint>]
 let main argv =
     let assembly = Assembly.GetExecutingAssembly()
@@ -43,16 +58,8 @@ let main argv =
     let cts = new CancellationTokenSource()
     let conf = serverConfig cts.Token configuration.HttpPort
 
-    let templateResourceDir = ResourceDirectory.fromLocalPath "templates"
-    let localTemplatesDirectories = List.map templateResourceDir [configuration.LocalResources.ApplicationCustom; configuration.LocalResources.Totopo]
-    let diskFileReader = DiskReader.readFile localTemplatesDirectories
-    let diskTemplateLoader = ComposeableTemplateLoader.readTemplate diskFileReader
-    let serveTemplateFromDisk = TemplateServing.serveTemplate diskTemplateLoader configuration.ExternalResources.CdnBase
-    
-    let remoteTemplatesDirectory = ResourceDirectory.fromBucketUri "templates" configuration.ExternalResources.BucketBase
-    let remoteFileReader = GoogleStorageReader.readFile remoteTemplatesDirectory configuration.ExternalResources.BucketBase
-    let remoteTemplateLoader = ComposeableTemplateLoader.readTemplate remoteFileReader
-    let serveTemplateFromCloudStorage = TemplateServing.serveTemplate remoteTemplateLoader configuration.ExternalResources.CdnBase
+    let serveTemplateFromDisk = createLocalDiskTemplateServing configuration.LocalResources configuration.ExternalResources
+    let serveTemplateFromCloudStorage = createCloudStorageTemplateServing configuration.ExternalResources
 
     let localResources = configuration.LocalResources
     let serveApplicationResource = Files.browse (LocalResourcePath.value localResources.ApplicationCustom)

@@ -14,14 +14,22 @@
 
 namespace Totopo.Filesystem
 
+open System
 open System.IO
 open Totopo.Configuration
 
-type FileBytes =
-    | FileBytes of string
+type FileContents = {
+    Text: string
+    Updated: DateTime}
 
-module FileBytes =
-    let bytes (FileBytes str) = str
+module FileContents =
+    let text (contents: FileContents) = contents.Text
+
+    let fromBytes (bytes: byte array) (updated: DateTime) =
+        { Text = System.Text.Encoding.Default.GetString(bytes); Updated = updated }
+    
+    let fromText (text: string) (updated: DateTime) =
+        { Text = text; Updated = updated }
 
 type FilePath =
     | FilePath of string
@@ -29,7 +37,7 @@ type FilePath =
 module FilePath =
     let value (FilePath path) = path
 
-type FileReader = FilePath -> FileBytes option
+type FileReader = FilePath -> FileContents option
 
 type ResourceDirectory = private ResourceDirectory of string
 

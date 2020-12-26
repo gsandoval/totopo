@@ -15,6 +15,7 @@
 namespace Totopo.Configuration
 
 open Suave
+open System
 
 type LocalResourcePath = LocalResourcePath of string
 
@@ -50,4 +51,5 @@ type ExternalResourceUris = {
 type Configuration =
     { HttpPort: Sockets.Port
       LocalResources: LocalResourcePaths
-      ExternalResources: ExternalResourceUris }
+      ExternalResources: ExternalResourceUris
+      TemplateCachingTimeout: TimeSpan }

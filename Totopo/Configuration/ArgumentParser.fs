@@ -16,6 +16,7 @@ namespace Totopo.Configuration
 
 open Argu
 open Suave
+open System
 open System.IO
 open System.Net
 open System.Reflection
@@ -26,8 +27,9 @@ module ArgumentParser =
         | [<CustomAppSettings "HttpPort"; CustomCommandLine "--http-port">] HttpPort of port: Sockets.Port
         | [<CustomAppSettings "TotopoResourcesPath"; CustomCommandLine "--totopo-resources-path">] TotopoResourcesPath of path: string
         | [<CustomAppSettings "ApplicationResourcesPath"; CustomCommandLine "--application-resources-path">] ApplicationResourcesPath of path: string
-        | [<CustomAppSettings "ResourcesBucketBaseUri"; CustomCommandLine "--resources-bucket-base-uri">] ResourcesBucketBaseUri of path: string
-        | [<CustomAppSettings "ResourcesCdnBaseUrl"; CustomCommandLine "--resources-cdn-base-url">] ResourcesCdnBaseUrl of path: string
+        | [<CustomAppSettings "ResourcesBucketBaseUri"; CustomCommandLine "--resources-bucket-base-uri">] ResourcesBucketBaseUri of uri: string
+        | [<CustomAppSettings "ResourcesCdnBaseUrl"; CustomCommandLine "--resources-cdn-base-url">] ResourcesCdnBaseUrl of url: string
+        | [<CustomAppSettings "TemplateCachingTimeout"; CustomCommandLine "--template-caching-timeout">] TemplateCachingTimeout of timeout: string
 
         interface IArgParserTemplate with
             member s.Usage =
@@ -37,6 +39,7 @@ module ArgumentParser =
                 | ApplicationResourcesPath _ -> "Local disk path for application resources"
                 | ResourcesBucketBaseUri _ -> "Bucket uri for application resources"
                 | ResourcesCdnBaseUrl _ -> "CDN url for application resources"
+                | TemplateCachingTimeout _ -> "Maximum time a template should be kept in the cache"
 
     let parse (argv: string []) (assembly: Assembly): Configuration =
         let assemblyPath = assembly.Location
@@ -72,8 +75,12 @@ module ArgumentParser =
         let resourcesCdn =
             CdnBaseUrl(results.GetResult(CliArguments.ResourcesCdnBaseUrl))
 
+        let templateCachingTimeoutStr = results.GetResult(CliArguments.TemplateCachingTimeout)
+        let templateCachingTimeout = TimeSpan.Parse(templateCachingTimeoutStr)
+
         { HttpPort = httpPort
           LocalResources =
               { ApplicationCustom = applicationCustomResources
                 Totopo = totopoResources }
-          ExternalResources = { BucketBase = resourcesBucket; CdnBase = resourcesCdn } }
+          ExternalResources = { BucketBase = resourcesBucket; CdnBase = resourcesCdn }
+          TemplateCachingTimeout = templateCachingTimeout }

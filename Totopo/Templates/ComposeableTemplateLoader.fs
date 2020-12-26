@@ -19,6 +19,6 @@ open Totopo.Filesystem
 
 module ComposeableTemplateLoader =
     let readTemplate (fileReader: FileReader) (name: TemplatePath) =
-        let templateContentReader = fileReader >=> (TemplateContent.fromBytes >> Some)
+        let templateContentReader = fileReader >=> (TemplateText.fromFileContents >> Some)
         let filename = FilePath(TemplatePath.value name + ".mustache")
         templateContentReader filename
