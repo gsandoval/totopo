@@ -44,5 +44,10 @@
    - '100'
    - '--port'
    - '8080'
+   - '--service-account'
+   - '985085595553-compute@developer.gserviceaccount.com'
+   - '--allow-unauthenticated'
+   - '--region'
+   - 'us-central1'
  images:
  - 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME'
