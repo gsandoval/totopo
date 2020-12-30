@@ -52,4 +52,7 @@ type Configuration =
     { HttpPort: Sockets.Port
       LocalResources: LocalResourcePaths
       ExternalResources: ExternalResourceUris
-      TemplateCachingTimeout: TimeSpan }
+      TemplateCachingTimeout: TimeSpan
+      CloudProjectName: string
+      LoggingMinLevel: Logging.LogLevel
+      AlsoLogToConsole: bool }

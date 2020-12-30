@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Logging\GoogleCloudLoggerSuaveAdapter.fs" />
+    <Compile Include="Logging\LoggerFactory.fs" />
     <Compile Include="Configuration\Types.fs" />
     <Compile Include="Configuration\ArgumentParser.fs" />
     <Compile Include="Filesystem\Types.fs" />
@@ -21,6 +23,7 @@
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.1.1" />
     <PackageReference Include="FSharpPlus" Version="1.2.0-CI01568" />
+    <PackageReference Include="Google.Cloud.Logging.V2" Version="3.2.0" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="3.3.0" />
     <PackageReference Include="Stubble.Core" Version="1.9.3" />
     <PackageReference Include="Suave" Version="2.6.0-beta" />

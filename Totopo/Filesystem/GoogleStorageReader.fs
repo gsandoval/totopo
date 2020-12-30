@@ -19,18 +19,18 @@ open Google.Cloud.Storage.V1
 open System
 open System.IO
 open Totopo.Configuration
+open Totopo.Logging
 
 type BucketName = BucketName of string
 
-module GoogleStorageReader =
-    let readFile (directory: ResourceDirectory) (bucket: BucketBaseUri) (filename: FilePath) =
+type GoogleStorageReader(storageClient: StorageClient option, logger: TotopoLogger, directory: ResourceDirectory, bucket: BucketBaseUri) =
+    let innerRead (storage: StorageClient) (filename: FilePath) =
         let fullPathStr =
             ResourceDirectory.value directory
             + FilePath.value filename
 
+        logger.Log(Debug, "Attempting to read {filename}", setField "filename" fullPathStr)
         try
-            let credential = GoogleCredential.GetApplicationDefault()
-            let storage = StorageClient.Create(credential)
             let getOptions = GetObjectOptions()
 
             let readObject =
@@ -51,6 +51,20 @@ module GoogleStorageReader =
 
             let templateContent =
                 FileContents.fromBytes fileBytes updatedTime DateTime.Now
-
+            
             templateContent |> Some
-        with _ -> None
+        with
+        | :? Responses.TokenResponseException as e ->
+            logger.Log(Warn, "Failed to read from bucket: {detail}", setField "detail" e.Message)
+            None
+        | :? Google.GoogleApiException as e ->
+            match e.HttpStatusCode with
+            | Net.HttpStatusCode.NotFound -> None
+            | _ -> reraise()
+
+    member this.ReadFile(filename: FilePath) =
+        match storageClient with
+        | Some client -> innerRead client filename
+        | None -> None
+
+        

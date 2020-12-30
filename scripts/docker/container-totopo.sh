@@ -15,9 +15,12 @@
 
 
 HTTP_PORT=${PORT:-50001}
-RESOURCES_BUCKET_BASE_URI_VAR=${RESOURCES_BUCKET_BASE_URI:-totopo.ker.gs}
-RESOURCES_CDN_BASE_URL_VAR=${RESOURCES_CDN_BASE_URL:-https://storage.googleapis.com/hac.ker.gs}
+RESOURCES_BUCKET_BASE_URI_VAR=${RESOURCES_BUCKET_BASE_URI}
+RESOURCES_CDN_BASE_URL_VAR=${RESOURCES_CDN_BASE_URL}
 TEMPLATE_CACHING_TIMEOUT_VAR=${TEMPLATE_CACHING_TIMEOUT:-00:05:00}
+LOGGING_MIN_LEVEL_VAR=${LOGGING_MIN_LEVEL:-Info}
+CLOUD_PROJECT_NAME_VAR=${CLOUD_PROJECT_NAME}
+ALSO_LOG_TO_CONSOLE_VAR=${ALSO_LOG_TO_CONSOLE:-false}
 
 /app/Totopo \
     --http-port $HTTP_PORT \
@@ -25,4 +28,7 @@ TEMPLATE_CACHING_TIMEOUT_VAR=${TEMPLATE_CACHING_TIMEOUT:-00:05:00}
     --application-resources-path /app/resources/hackergs \
     --resources-bucket-base-uri $RESOURCES_BUCKET_BASE_URI_VAR \
     --resources-cdn-base-url $RESOURCES_CDN_BASE_URL_VAR \
-    --template-caching-timeout ${TEMPLATE_CACHING_TIMEOUT_VAR}
+    --template-caching-timeout ${TEMPLATE_CACHING_TIMEOUT_VAR} \
+    --logging-min-level ${LOGGING_MIN_LEVEL_VAR} \
+    --cloud-project-name ${CLOUD_PROJECT_NAME_VAR} \
+    --also-log-to-console ${ALSO_LOG_TO_CONSOLE_VAR}

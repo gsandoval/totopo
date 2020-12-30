@@ -115,9 +115,30 @@ module TemplateServing =
 
     let serveTemplate (loader: TemplateLoader) (cdnBase: CdnBaseUrl) (context: HttpContext): Async<HttpContext option> =
         async {
-            let name = TemplatePath.fromRequest context.request
+            try 
+                let name = TemplatePath.fromRequest context.request
+                let rendered = evaluateTemplate loader cdnBase name
+                return! match rendered with
+                        | Some rendered -> Successful.OK rendered context
+                        | None -> Async.result None
+            with
+            | e ->
+                printfn "%O" e
+                let errorList = match context.userState.TryGetValue "errors" with
+                                | true, errorListObj -> (errorListObj :?> list<TemplateServingError>)
+                                | _ -> []
+                context.userState.Remove("errors") |> ignore
+                let error: TemplateServingError = { Message = e.Message; InnerError = e }
+                context.userState.Add("errors", List.append errorList [error]) |> ignore
+                return! Async.result None
+        }
 
-            return! match evaluateTemplate loader cdnBase name with
-                    | Some rendered -> Successful.OK rendered context
-                    | None -> Async.result None
+    let handleError (templateServing: WebPart) (context: HttpContext) =
+        async {
+            let context = match context.userState.TryGetValue "errors" with
+                          | true, errorList ->
+                            { context with request = { context.request with rawPath = "/errors/500" } }
+                          | _ ->
+                            { context with request = { context.request with rawPath = "/errors/404" } }
+            return! templateServing context
         }

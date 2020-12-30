@@ -35,6 +35,11 @@ module ArgumentParser =
             url: string
         | [<CustomAppSettings "TemplateCachingTimeout"; CustomCommandLine "--template-caching-timeout">] TemplateCachingTimeout of
             timeout: string
+        | [<CustomAppSettings "CloudProjectName"; CustomCommandLine "--cloud-project-name">] CloudProjectName of
+            name: string
+        | [<CustomAppSettings "LoggingMinLevel"; CustomCommandLine "--logging-min-level">] LoggingMinLevel of
+            level: string
+        | [<CustomAppSettings "AlsoLogToConsole"; CustomCommandLine "--also-log-to-console">] AlsoLogToConsole of console:bool
 
         interface IArgParserTemplate with
             member s.Usage =
@@ -45,6 +50,9 @@ module ArgumentParser =
                 | ResourcesBucketBaseUri _ -> "Bucket uri for application resources"
                 | ResourcesCdnBaseUrl _ -> "CDN url for application resources"
                 | TemplateCachingTimeout _ -> "Maximum time a template should be kept in the cache"
+                | CloudProjectName _ -> "Cloud project name"
+                | LoggingMinLevel _ -> "Minimum logging level that is output"
+                | AlsoLogToConsole _ -> "Signal whether to log to console too"
 
     let parse (argv: string []) (assembly: Assembly): Configuration =
         let assemblyPath = assembly.Location
@@ -66,25 +74,32 @@ module ArgumentParser =
         let results =
             argumentParser.Parse(argv, configurationReader = configurationReader, ignoreUnrecognized = true)
 
-        let httpPort = results.GetResult(CliArguments.HttpPort)
+        let httpPort = results.GetResult(HttpPort)
 
         let totopoResources =
-            LocalResourcePath(results.GetResult(CliArguments.TotopoResourcesPath))
+            LocalResourcePath(results.GetResult(TotopoResourcesPath))
 
         let applicationCustomResources =
-            LocalResourcePath(results.GetResult(CliArguments.ApplicationResourcesPath))
+            LocalResourcePath(results.GetResult(ApplicationResourcesPath))
 
         let resourcesBucket =
-            BucketBaseUri(results.GetResult(CliArguments.ResourcesBucketBaseUri))
+            BucketBaseUri(results.GetResult(ResourcesBucketBaseUri))
 
         let resourcesCdn =
-            CdnBaseUrl(results.GetResult(CliArguments.ResourcesCdnBaseUrl))
+            CdnBaseUrl(results.GetResult(ResourcesCdnBaseUrl))
 
         let templateCachingTimeoutStr =
-            results.GetResult(CliArguments.TemplateCachingTimeout)
+            results.GetResult(TemplateCachingTimeout)
 
         let templateCachingTimeout =
             TimeSpan.Parse(templateCachingTimeoutStr)
+
+        let cloudProjectName = results.GetResult(CloudProjectName)
+
+        let loggingMinLevel =
+            Logging.LogLevel.ofString (results.GetResult(LoggingMinLevel))
+
+        let alsoLogToConsole = results.GetResult(AlsoLogToConsole, false)
 
         { HttpPort = httpPort
           LocalResources =
@@ -93,4 +108,7 @@ module ArgumentParser =
           ExternalResources =
               { BucketBase = resourcesBucket
                 CdnBase = resourcesCdn }
-          TemplateCachingTimeout = templateCachingTimeout }
+          TemplateCachingTimeout = templateCachingTimeout
+          CloudProjectName = cloudProjectName
+          LoggingMinLevel = loggingMinLevel
+          AlsoLogToConsole = alsoLogToConsole }

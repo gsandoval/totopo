@@ -83,3 +83,5 @@ type Template =
       Text: TemplateText }
 
 type TemplateLoader = TemplatePath -> TemplateText option
+
+type TemplateServingError = { Message: string; InnerError: System.Exception }
