@@ -32,8 +32,8 @@ module DiskReader =
                 | false -> None
                 | true ->
                     let fileText = File.ReadAllText potentialPath
-
-                    FileContents.fromText fileText System.DateTime.Now System.DateTime.Now
+                    let updatedAt = File.GetLastWriteTimeUtc(potentialPath)
+                    FileContents.fromText fileText updatedAt System.DateTime.Now
                     |> Some
 
         fold readFileFromFirstDirectoryMatch None directories

@@ -15,8 +15,7 @@
 namespace Totopo.Templates
 
 open Suave
-open System.IO
-open Totopo.Configuration
+open System
 open Totopo.Filesystem
 
 type TemplatePath = private TemplatePath of string
@@ -64,24 +63,38 @@ module TemplatePath =
         let nameAsStr = value name
         fromString (parentAsStr + "/" + nameAsStr)
 
-type TemplateText = private TemplateText of string
+type TemplateContents = { Text: string; UpdatedAt: DateTime }
 
-// Introduce FileBytes to push reading from disk out of this type
-module TemplateText =
-    let fromFileContents (contents: FileContents) =
-        FileContents.text contents |> TemplateText
+// Introduce FileContents to push reading from disk out of this type
+module TemplateContents =
+    let fromFileContents (contents: FileContents): TemplateContents =
+        { Text = contents.Text; UpdatedAt = contents.UpdatedAt }
 
-    let value (TemplateText str) = str
-
-    let replaceWith (content: TemplateText) (index: int) (length: int) (updated: string) =
-        let str = value content
+    let replaceWith (content: TemplateContents) (index: int) (length: int) (updated: string) =
+        let str = content.Text
         let updated = str.Substring(0, index) + updated + str.Substring(index + length)
-        TemplateText updated
+        { content with Text = updated }
+
+type TemplateId = private TemplateId of string
+
+module TemplateId =
+    let generate = fun () ->
+        let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        let random = Random()
+        let randomChars = String([|for i in 0..26 -> chars.[random.Next(chars.Length)]|])
+        TemplateId randomChars
+    
+    let value (TemplateId str) = str
 
 type Template =
-    { Path: TemplatePath
-      Text: TemplateText }
+    { Id: TemplateId
+      Path: TemplatePath
+      Contents: TemplateContents }
 
-type TemplateLoader = TemplatePath -> TemplateText option
+type TemplateLoader = TemplatePath -> TemplateContents option
+
+type LoadedTemplate =
+    { Template: Template
+      ReferencedTemplates: Template list }
 
 type TemplateServingError = { Message: string; InnerError: System.Exception }

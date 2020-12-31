@@ -48,6 +48,8 @@ type ExternalResourceUris = {
     BucketBase: BucketBaseUri
     CdnBase: CdnBaseUrl }
 
+type ServingStrategy = Local | Remote
+
 type Configuration =
     { HttpPort: Sockets.Port
       LocalResources: LocalResourcePaths
@@ -55,4 +57,5 @@ type Configuration =
       TemplateCachingTimeout: TimeSpan
       CloudProjectName: string
       LoggingMinLevel: Logging.LogLevel
-      AlsoLogToConsole: bool }
+      AlsoLogToConsole: bool
+      ServingStrategy: ServingStrategy }

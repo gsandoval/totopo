@@ -23,7 +23,7 @@ open Totopo.Filesystem
 open Suave
 open System
 
-let fakeTestTemplates (name: TemplatePath): TemplateText option =
+let fakeTestTemplates (name: TemplatePath): TemplateContents option =
     let contents =
         match TemplatePath.value name with
         | "/hello" ->
@@ -56,9 +56,21 @@ let fakeTestTemplates (name: TemplatePath): TemplateText option =
         | "/same-level-deps/2020/index" ->
             FileContents.fromText "::projects::2020::index {{> chunk1}}" DateTime.Now DateTime.Now
             |> Some
+        | "/mixed-level-deps/2020/index" ->
+            FileContents.fromText "::mixed::2020::index {{> chunk1}}" DateTime.Now DateTime.Now
+            |> Some
+        | "/mixed-level-deps/2020/index/chunk1" ->
+            FileContents.fromText "::mixed::2020::index::chunk1 {{> parent}}" DateTime.Now DateTime.Now
+            |> Some
+        | "/mixed-level-deps/2020/parent" ->
+            FileContents.fromText "::mixed::2020::parent {{> chunk2}}" DateTime.Now DateTime.Now
+            |> Some
+        | "/mixed-level-deps/2020/index/chunk2" ->
+            FileContents.fromText "::mixed::2020::index::chunk2" DateTime.Now DateTime.Now
+            |> Some
         | _ -> None
 
-    map TemplateText.fromFileContents contents
+    map TemplateContents.fromFileContents contents
 
 let fakeCdnBaseUrl = CdnBaseUrl("")
 
@@ -85,23 +97,30 @@ let tests =
               TemplatePath.fromString "same-level-deps/2020/index"
               |> TemplateServing.evaluateTemplate fakeTestTemplates fakeCdnBaseUrl
               |> Expect.equal "loads template with same level deps" (Some expectedResult)
+
+              let expectedResult =
+                  "::mixed::2020::index ::mixed::2020::index::chunk1 ::mixed::2020::parent ::mixed::2020::index::chunk2"
+
+              TemplatePath.fromString "mixed-level-deps/2020/index"
+              |> TemplateServing.evaluateTemplate fakeTestTemplates fakeCdnBaseUrl
+              |> Expect.equal "loads template with mixed level deps" (Some expectedResult)
           }
 
           test "generate sub paths" {
-              TemplateServing.generatePossibleReferencedPaths (TemplatePath.fromString "hello")
+              TemplateServing.generatePossibleReferencedPaths [TemplatePath.fromString "hello"]
               |> Expect.equal
                   "generates 2 options with simple name"
                   [ TemplatePath.fromString "hello"
                     TemplatePath.empty ]
 
-              TemplateServing.generatePossibleReferencedPaths (TemplatePath.fromString "hello/world")
+              TemplateServing.generatePossibleReferencedPaths [TemplatePath.fromString "hello/world"]
               |> Expect.equal
                   "generates 3 options with nested name"
                   [ TemplatePath.fromString "hello/world"
                     TemplatePath.fromString "hello"
                     TemplatePath.empty ]
 
-              TemplateServing.generatePossibleReferencedPaths TemplatePath.empty
+              TemplateServing.generatePossibleReferencedPaths []
               |> Expect.equal "generates 1 option none" [ TemplatePath.empty ]
           } ]
 

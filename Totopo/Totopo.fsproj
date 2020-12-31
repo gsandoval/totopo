@@ -15,6 +15,7 @@
     <Compile Include="Filesystem\DiskReader.fs" />
     <Compile Include="Filesystem\GoogleStorageReader.fs" />
     <Compile Include="Templates\Types.fs" />
+    <Compile Include="Templates\ViewModels.fs" />
     <Compile Include="Templates\ComposeableTemplateLoader.fs" />
     <Compile Include="Templates\TemplateServingWebPart.fs" />
     <Compile Include="Program.fs" />

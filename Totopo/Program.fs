@@ -31,10 +31,10 @@ let createLoggerFactory configuration =
     let cloudClient =
         try
             LoggingServiceV2Client.Create() |> Some
-        with
-        | e ->
+        with e ->
             printfn "Failed to create Cloud Logging client %s" e.Message
             None
+
     let monitoredResource = MonitoredResource(Type = "global")
 
     let cloudSettings =
@@ -55,15 +55,20 @@ let serverConfig cancellationToken httpPort suaveLogger =
           logger = suaveLogger
           homeFolder = Some staticFilesDirectory }
 
-let createLocalDiskTemplateServing (local: LocalResourcePaths) (external: ExternalResourceUris) loggerFactory =
+let getCdnBaseUri (configuration: Configuration) =
+    match configuration.ServingStrategy with
+    | Local -> CdnBaseUrl("")
+    | Remote -> configuration.ExternalResources.CdnBase
+
+let createLocalDiskTemplateServing (configuration: Configuration) loggerFactory =
     let templateResourceDir =
         ResourceDirectory.fromLocalPath "templates"
 
     let localTemplatesDirectories =
         List.map
             templateResourceDir
-            [ local.ApplicationCustom
-              local.Totopo ]
+            [ configuration.LocalResources.ApplicationCustom
+              configuration.LocalResources.Totopo ]
 
     let diskFileReader =
         DiskReader.readFile localTemplatesDirectories
@@ -71,22 +76,24 @@ let createLocalDiskTemplateServing (local: LocalResourcePaths) (external: Extern
     let diskTemplateLoader =
         ComposeableTemplateLoader.readTemplate diskFileReader
 
-    TemplateServing.serveTemplate diskTemplateLoader external.CdnBase
+    let cdnUri = getCdnBaseUri configuration
+    TemplateServing.serveTemplate diskTemplateLoader cdnUri
 
-let createCloudStorageTemplateServing (external: ExternalResourceUris) (loggerFactory: LoggerFactory) =
+let createCloudStorageTemplateServing (configuration: Configuration) (loggerFactory: LoggerFactory) =
     let remoteTemplatesDirectory =
-        ResourceDirectory.fromBucketUri "templates" external.BucketBase
+        ResourceDirectory.fromBucketUri "templates" configuration.ExternalResources.BucketBase
 
     let logger = loggerFactory.Create()
+
     let storageClient =
-        try 
+        try
             StorageClient.Create() |> Some
-        with
-        | e -> 
+        with e ->
             logger.Log(Error, "Failed to create Cloud Storage client: {message}", setField "message" e.Message)
             None
 
-    let remoteFileReader = GoogleStorageReader(storageClient, logger, remoteTemplatesDirectory, external.BucketBase)
+    let remoteFileReader =
+        GoogleStorageReader(storageClient, logger, remoteTemplatesDirectory, configuration.ExternalResources.BucketBase)
 
     let cache =
         TimeExpiringFileCache(TimeSpan.FromMinutes 1.0)
@@ -97,7 +104,8 @@ let createCloudStorageTemplateServing (external: ExternalResourceUris) (loggerFa
     let remoteTemplateLoader =
         ComposeableTemplateLoader.readTemplate cachingFileReader
 
-    TemplateServing.serveTemplate remoteTemplateLoader external.CdnBase
+    let cdnUri = getCdnBaseUri configuration
+    TemplateServing.serveTemplate remoteTemplateLoader cdnUri
 
 [<EntryPoint>]
 let main argv =
@@ -113,11 +121,9 @@ let main argv =
     let conf =
         serverConfig cts.Token configuration.HttpPort loggerFactory.SuaveLogger
 
-    let serveTemplateFromDisk =
-        createLocalDiskTemplateServing configuration.LocalResources configuration.ExternalResources loggerFactory
+    let serveTemplateFromDisk = createLocalDiskTemplateServing configuration loggerFactory
 
-    let serveTemplateFromCloudStorage =
-        createCloudStorageTemplateServing configuration.ExternalResources loggerFactory
+    let serveTemplateFromCloudStorage = createCloudStorageTemplateServing configuration loggerFactory
 
     let localResources = configuration.LocalResources
 
@@ -127,18 +133,35 @@ let main argv =
     let serveTotopoResource =
         Files.browse (LocalResourcePath.value localResources.Totopo)
 
+    let staticContentPathHandlers =
+        [ Filters.pathRegex "/static/.*"
+          >=> serveApplicationResource
+          Filters.pathRegex "/static/.*"
+          >=> serveTotopoResource ]
+
+    let templatePathHandlers =
+        match configuration.ServingStrategy with
+        | Local ->
+            [ serveTemplateFromDisk
+              serveTemplateFromCloudStorage ]
+        | Remote ->
+            [ serveTemplateFromCloudStorage
+              serveTemplateFromDisk ]
+
+    let templatePathErrorHandlers =
+        List.map TemplateServing.handleError templatePathHandlers
+
+    let systemNotFoundHandler = RequestErrors.NOT_FOUND "Not found"
+
+    let pathHandlers =
+        List.concat [ staticContentPathHandlers
+                      templatePathHandlers
+                      templatePathErrorHandlers
+                      [ systemNotFoundHandler ] ]
+
     let app =
         choose [ Filters.GET
-                 >=> choose [ Filters.pathRegex ".*"
-                              >=> choose [ Filters.pathRegex "/static/.*"
-                                           >=> serveApplicationResource
-                                           Filters.pathRegex "/static/.*"
-                                           >=> serveTotopoResource
-                                           serveTemplateFromCloudStorage
-                                           serveTemplateFromDisk
-                                           TemplateServing.handleError serveTemplateFromCloudStorage
-                                           TemplateServing.handleError serveTemplateFromDisk
-                                           RequestErrors.NOT_FOUND "Not found" ] ]
+                 >=> choose [ Filters.pathRegex ".*" >=> choose pathHandlers ]
                  RequestErrors.NOT_FOUND "Unsupported request" ]
 
     let listening, server = startWebServerAsync conf app

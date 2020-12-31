@@ -39,20 +39,22 @@ module ArgumentParser =
             name: string
         | [<CustomAppSettings "LoggingMinLevel"; CustomCommandLine "--logging-min-level">] LoggingMinLevel of
             level: string
-        | [<CustomAppSettings "AlsoLogToConsole"; CustomCommandLine "--also-log-to-console">] AlsoLogToConsole of console:bool
+        | [<CustomAppSettings "AlsoLogToConsole"; CustomCommandLine "--also-log-to-console">] AlsoLogToConsole of console: bool
+        | [<CustomAppSettings "ServingStrategy"; CustomCommandLine "--serving-strategy">] ServingStrategy of strategy: string
 
         interface IArgParserTemplate with
             member s.Usage =
                 match s with
-                | HttpPort _ -> "Specify a port for the HTTP interface"
-                | TotopoResourcesPath _ -> "Local disk path for generic totopo resources"
-                | ApplicationResourcesPath _ -> "Local disk path for application resources"
-                | ResourcesBucketBaseUri _ -> "Bucket uri for application resources"
-                | ResourcesCdnBaseUrl _ -> "CDN url for application resources"
-                | TemplateCachingTimeout _ -> "Maximum time a template should be kept in the cache"
-                | CloudProjectName _ -> "Cloud project name"
-                | LoggingMinLevel _ -> "Minimum logging level that is output"
-                | AlsoLogToConsole _ -> "Signal whether to log to console too"
+                | HttpPort _ -> "Specify a port for the HTTP interface."
+                | TotopoResourcesPath _ -> "Local disk path for generic totopo resources."
+                | ApplicationResourcesPath _ -> "Local disk path for application resources."
+                | ResourcesBucketBaseUri _ -> "Bucket uri for application resources."
+                | ResourcesCdnBaseUrl _ -> "CDN url for application resources."
+                | TemplateCachingTimeout _ -> "Maximum time a template should be kept in the cache."
+                | CloudProjectName _ -> "Cloud project name."
+                | LoggingMinLevel _ -> "Minimum logging level that is output."
+                | AlsoLogToConsole _ -> "Signal whether to log to console too. Defaults to false."
+                | ServingStrategy _ -> "Serving strategy; 'local' prioritizes local disk, 'remote' prioritizes Cloud storage. Defaults to 'remote'."
 
     let parse (argv: string []) (assembly: Assembly): Configuration =
         let assemblyPath = assembly.Location
@@ -101,6 +103,12 @@ module ArgumentParser =
 
         let alsoLogToConsole = results.GetResult(AlsoLogToConsole, false)
 
+        let servingStrategyStr = results.GetResult(ServingStrategy, "remote")
+        let servingStrategy = match servingStrategyStr with
+                              | "local" -> Local
+                              | "remote" -> Remote
+                              | _ -> Remote
+
         { HttpPort = httpPort
           LocalResources =
               { ApplicationCustom = applicationCustomResources
@@ -111,4 +119,5 @@ module ArgumentParser =
           TemplateCachingTimeout = templateCachingTimeout
           CloudProjectName = cloudProjectName
           LoggingMinLevel = loggingMinLevel
-          AlsoLogToConsole = alsoLogToConsole }
+          AlsoLogToConsole = alsoLogToConsole
+          ServingStrategy = servingStrategy }
