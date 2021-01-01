@@ -29,10 +29,10 @@ module ViewModels =
         member this.Millisecond = time.Millisecond
 
         member this.Human =
-            $"{this.Year}-{this.Month}-{this.Day} {this.Hour}:{this.Minute} UTC"
+            $"{this.Year}-{this.Month:D2}-{this.Day:D2} {this.Hour:D2}:{this.Minute:D2} UTC"
 
         member this.Iso8601 =
-            $"{this.Year}-{this.Month}-{this.Day}T{this.Hour}:{this.Minute}:{this.Second}.{this.Millisecond}Z"
+            $"{this.Year}-{this.Month:D2}-{this.Day:D2}T{this.Hour:D2}:{this.Minute:D2}:{this.Second:D2}.{this.Millisecond:D3}Z"
 
     type ViewTemplate(template: Template, allTemplates: Template list) =
         member this.Directory =
