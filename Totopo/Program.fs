@@ -116,6 +116,8 @@ let main argv =
 
     let logger = loggerFactory.Create()
 
+    logger.Log(Info, "Configuration loaded {configuration}", setField "configuration" configuration)
+
     let cts = new CancellationTokenSource()
 
     let conf =
