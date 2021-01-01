@@ -99,9 +99,7 @@ module ViewModels =
         member this.Time = ViewTime(DateTime.UtcNow)
 
     type ViewMain(cdnBase: CdnBaseUrl, template: LoadedTemplate) =
-        member this.StaticResource = Func<string, obj>((fun x -> x :> obj))
-
-        member this.static_resource =
+        member this.StaticResource =
             Func<string, obj>((fun x -> CdnBaseUrl.value cdnBase + x :> obj))
 
         member this.Templates = ViewTemplates(template)
