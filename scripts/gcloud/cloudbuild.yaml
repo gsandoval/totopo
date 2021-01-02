@@ -28,8 +28,6 @@
    - 'totopo-hackergs'
    - '--image'
    - 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME'
-   - '--region'
-   - 'us-east4'
    - '--platform'
    - 'managed'
    - '--set-env-vars'

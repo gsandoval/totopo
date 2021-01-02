@@ -172,11 +172,9 @@ type GoogleCloudLoggerSuaveAdapter(name: string array, minLevel: LogLevel, cloud
 
         writeRequest.Entries.Add logEntry
 
-        // cloudClient.WriteLogEntries(writeRequest)
         match cloudSettings.CloudClient with
         | Some cloudClient ->
-            //cloudClient.WriteLogEntries(writeRequest) |> ignore
-            System.Console.WriteLine(textPayload)
+            cloudClient.WriteLogEntries(writeRequest) |> ignore
             None
         | None ->
             match cloudSettings.FallbackMode with
