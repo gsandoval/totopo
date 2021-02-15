@@ -23,3 +23,8 @@
 # Exclude git history and configuration.
 .git/
 .gitignore
+Totopo/bin/
+Totopo/obj/
+Tests/bin/
+Tests/obj/
+# resources/hackergs

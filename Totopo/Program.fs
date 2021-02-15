@@ -25,6 +25,7 @@ open System.Threading
 open Totopo.Configuration
 open Totopo.Filesystem
 open Totopo.Logging
+open Totopo.Routing
 open Totopo.Templates
 
 let createLoggerFactory configuration =
@@ -60,9 +61,9 @@ let getCdnBaseUri (configuration: Configuration) =
     | Local -> CdnBaseUrl("")
     | Remote -> configuration.ExternalResources.CdnBase
 
-let createLocalDiskTemplateServing (configuration: Configuration) loggerFactory =
+let createDiskDirectoryReader (configuration: Configuration) (directory: string) =
     let templateResourceDir =
-        ResourceDirectory.fromLocalPath "templates"
+        ResourceDirectory.fromLocalPath directory
 
     let localTemplatesDirectories =
         List.map
@@ -70,21 +71,22 @@ let createLocalDiskTemplateServing (configuration: Configuration) loggerFactory 
             [ configuration.LocalResources.ApplicationCustom
               configuration.LocalResources.Totopo ]
 
-    let diskFileReader =
-        DiskReader.readFile localTemplatesDirectories
+    DiskReader.readFile localTemplatesDirectories
+
+let createLocalDiskTemplateServing (configuration: Configuration) (diskReader: string -> FileReader) loggerFactory =
+    let templateDiskReader = diskReader "templates"
 
     let diskTemplateLoader =
-        ComposeableTemplateLoader.readTemplate diskFileReader
+        ComposeableTemplateLoader.readTemplate templateDiskReader
 
     let cdnUri = getCdnBaseUri configuration
     TemplateServing.serveTemplate diskTemplateLoader cdnUri
 
-let createCloudStorageTemplateServing (configuration: Configuration) (loggerFactory: LoggerFactory) =
-    let remoteTemplatesDirectory =
-        ResourceDirectory.fromBucketUri "templates" configuration.ExternalResources.BucketBase
-
-    let logger = loggerFactory.Create()
-
+let createCloudDirectoryReader
+    (logger: TotopoLogger)
+    (configuration: Configuration)
+    (directory: string)
+    =
     let storageClient =
         try
             StorageClient.Create() |> Some
@@ -92,14 +94,22 @@ let createCloudStorageTemplateServing (configuration: Configuration) (loggerFact
             logger.Log(Error, "Failed to create Cloud Storage client: {message}", setField "message" e.Message)
             None
 
+    let remoteDirectory =
+        ResourceDirectory.fromBucketUri directory configuration.ExternalResources.BucketBase
+
     let remoteFileReader =
-        GoogleStorageReader(storageClient, logger, remoteTemplatesDirectory, configuration.ExternalResources.BucketBase)
+        GoogleStorageReader(storageClient, logger, remoteDirectory, configuration.ExternalResources.BucketBase)
 
     let cache =
         TimeExpiringFileCache(TimeSpan.FromMinutes 1.0)
 
-    let cachingFileReader =
-        CachingFileReader.create cache remoteFileReader.ReadFile
+    CachingFileReader.create cache remoteFileReader.ReadFile
+
+let createCloudStorageTemplateServing
+    (configuration: Configuration)
+    (cloudFileReaderFactory: string -> FileReader)
+    =
+    let cachingFileReader = cloudFileReaderFactory "templates"
 
     let remoteTemplateLoader =
         ComposeableTemplateLoader.readTemplate cachingFileReader
@@ -123,9 +133,14 @@ let main argv =
     let conf =
         serverConfig cts.Token configuration.HttpPort loggerFactory.SuaveLogger
 
-    let serveTemplateFromDisk = createLocalDiskTemplateServing configuration loggerFactory
+    let diskFileReaderFactory = createDiskDirectoryReader configuration
+    let cloudFileReaderFactory = createCloudDirectoryReader logger configuration
 
-    let serveTemplateFromCloudStorage = createCloudStorageTemplateServing configuration loggerFactory
+    let serveTemplateFromDisk =
+        createLocalDiskTemplateServing configuration diskFileReaderFactory loggerFactory
+
+    let serveTemplateFromCloudStorage =
+        createCloudStorageTemplateServing configuration cloudFileReaderFactory
 
     let localResources = configuration.LocalResources
 
@@ -150,13 +165,22 @@ let main argv =
             [ serveTemplateFromCloudStorage
               serveTemplateFromDisk ]
 
+    let routingDiskReader = diskFileReaderFactory "routing"
+    let routingCloudReader = cloudFileReaderFactory "routing"
+
+    let redirectHandlers =
+        match configuration.ServingStrategy with
+        | Local -> [ RedirectHandler.handle routingDiskReader ]
+        | Remote -> [ RedirectHandler.handle routingCloudReader ]
+
     let templatePathErrorHandlers =
         List.map TemplateServing.handleError templatePathHandlers
 
     let systemNotFoundHandler = RequestErrors.NOT_FOUND "Not found"
 
     let pathHandlers =
-        List.concat [ staticContentPathHandlers
+        List.concat [ redirectHandlers
+                      staticContentPathHandlers
                       templatePathHandlers
                       templatePathErrorHandlers
                       [ systemNotFoundHandler ] ]

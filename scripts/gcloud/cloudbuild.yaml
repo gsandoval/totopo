@@ -12,40 +12,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
  steps:
  # Build the container image
  - name: 'gcr.io/cloud-builders/docker'
-   args: ['build', '-t', 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME', '-f', 'scripts/docker/Dockerfile', '.']
+   args: ['build', '-t', 'gcr.io/$PROJECT_ID/totopo:$BUILD_ID', '-f', 'scripts/docker/Dockerfile', '.']
  # Push the container image to Container Registry
  - name: 'gcr.io/cloud-builders/docker'
-   args: ['push', 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME']
+   args: ['push', 'gcr.io/$PROJECT_ID/totopo:$BUILD_ID']
  # Deploy container image to Cloud Run
  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
    entrypoint: gcloud
    args:
+   - 'beta'
    - 'run'
    - 'deploy'
-   - 'totopo-hackergs'
+   - 'totopo-${_RUN_INSTANCE_NAME}'
    - '--image'
-   - 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME'
+   - 'gcr.io/$PROJECT_ID/totopo:$BUILD_ID'
    - '--platform'
    - 'managed'
    - '--set-env-vars'
-   - 'TEMPLATE_CACHING_TIMEOUT=00:05:00,RESOURCES_CDN_BASE_URL=https://storage.googleapis.com/hac.ker.gs,RESOURCES_BUCKET_BASE_URI=totopo.ker.gs,CLOUD_PROJECT_NAME=ker-gs,ALSO_LOG_TO_CONSOLE=false,LOGGING_MIN_LEVEL=Info'
-   - '--concurrency'
-   - '80'
-   - '--memory'
-   - '256Mi'
-   - '--cpu'
-   - '1'
-   - '--max-instances'
-   - '100'
-   - '--port'
-   - '8080'
-   - '--service-account'
-   - '985085595553-compute@developer.gserviceaccount.com'
+   - 'TEMPLATE_CACHING_TIMEOUT=${_TOTOPO_TEMPLATE_CACHE_TTL}'
+   - '--set-env-vars'
+   - 'RESOURCES_CDN_BASE_URL=${_TOTOPO_CDN_URL}'
+   - '--set-env-vars'
+   - 'RESOURCES_BUCKET_BASE_URI=${_TOTOPO_BUCKET_URI}'
+   - '--set-env-vars'
+   - 'CLOUD_PROJECT_NAME=$PROJECT_ID'
+   - '--set-env-vars'
+   - 'ALSO_LOG_TO_CONSOLE=false'
+   - '--set-env-vars'
+   - 'LOGGING_MIN_LEVEL=${_TOTOPO_LOG_LEVEL}'
+   - '--concurrency=${_RUN_CONCURRENCY}'
+   - '--memory=${_RUN_RAM}'
+   - '--cpu=${_RUN_CPU}'
+   - '--min-instances=${_RUN_MIN_INSTANCES}'
+   - '--max-instances=${_RUN_MAX_INSTANCES}'
+   - '--port=8080'
+   - '--service-account=${_RUN_SERVICE_ACCOUNT}'
    - '--allow-unauthenticated'
-   - '--region'
-   - 'us-central1'
+   - '--region=${_RUN_REGION}'
+ substitutions:
+  _RUN_CONCURRENCY: '80'
+  _RUN_RAM: '256Mi'
+  _RUN_CPU: '1'
+  _RUN_MAX_INSTANCES: '50'
+  _RUN_MIN_INSTANCES: '0'
+  _RUN_REGION: 'us-central1'
+  _TOTOPO_LOG_LEVEL: 'Info'
+  _TOTOPO_TEMPLATE_CACHE_TTL: '00:05:00'
  images:
- - 'gcr.io/$PROJECT_ID/totopo-hackergs:$TAG_NAME'
+ - 'gcr.io/$PROJECT_ID/totopo:$BUILD_ID'

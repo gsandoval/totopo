@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +14,7 @@
     <Compile Include="Filesystem\CachingFileReader.fs" />
     <Compile Include="Filesystem\DiskReader.fs" />
     <Compile Include="Filesystem\GoogleStorageReader.fs" />
+    <Compile Include="Routing\RedirectHandler.fs" />
     <Compile Include="Templates\Types.fs" />
     <Compile Include="Templates\ViewModels.fs" />
     <Compile Include="Templates\ComposeableTemplateLoader.fs" />
@@ -23,32 +24,17 @@
 
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.1.1" />
-    <PackageReference Include="FSharpPlus" Version="1.2.0-CI01568" />
+    <PackageReference Include="FSharpPlus" Version="1.1.7" />
     <PackageReference Include="Google.Cloud.Logging.V2" Version="3.2.0" />
-    <PackageReference Include="Google.Cloud.Storage.V1" Version="3.3.0" />
+    <PackageReference Include="Google.Cloud.Storage.V1" Version="3.4.0" />
+    <PackageReference Include="Legivel" Version="0.4.6" />
     <PackageReference Include="Stubble.Core" Version="1.9.3" />
-    <PackageReference Include="Suave" Version="2.6.0-beta" />
+    <PackageReference Include="Suave" Version="2.6.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\resources\totopo\static\css\main.css" />
-    <Content Include="..\resources\totopo\templates\errors\500.mustache" />
-    <Content Include="..\resources\totopo\templates\errors\404.mustache" />
-    <Content Include="..\resources\totopo\templates\errors\418.mustache" />
-    <Content Include="..\resources\totopo\templates\errors\503.mustache" />
-    <Content Include="..\resources\totopo\templates\_footer.mustache" />
-    <Content Include="..\resources\totopo\templates\_header.mustache" />
-    <Content Include="..\resources\hackergs\static\css\main.css" />
-    <Content Include="..\resources\hackergs\templates\build-info\index.mustache" />
-    <Content Include="..\resources\hackergs\templates\bug-tracker\index.mustache" />
-    <Content Include="..\resources\hackergs\templates\index\_user.mustache" />
-    <Content Include="..\resources\hackergs\templates\index\_users.mustache" />
-    <Content Include="..\resources\hackergs\templates\release-notes\index.mustache" />
-    <Content Include="..\resources\hackergs\templates\_footer.mustache" />
-    <Content Include="..\resources\hackergs\templates\_navigation.mustache" />
-    <Content Include="..\resources\hackergs\templates\index.mustache" />
-    <Content Include="..\resources\hackergs\templates\_header.mustache" />
-    <Content Include="..\resources\hackergs\version.txt" />
+    <Content Include="..\resources\totopo\**" />
+    <Content Include="..\resources\hackergs\**" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
