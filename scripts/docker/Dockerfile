@@ -26,6 +26,7 @@ RUN dotnet publish -c release -o out -r linux-x64 --self-contained true --no-res
 COPY scripts/docker/container-totopo.sh out/
 
 FROM  mcr.microsoft.com/dotnet/runtime:5.0 AS runtime
+RUN apt-get update && apt-get install -y libc-dev
 WORKDIR /app
 
 COPY --from=build /app/out ./
