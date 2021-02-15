@@ -82,18 +82,21 @@ let createLocalDiskTemplateServing (configuration: Configuration) (diskReader: s
     let cdnUri = getCdnBaseUri configuration
     TemplateServing.serveTemplate diskTemplateLoader cdnUri
 
-let createCloudDirectoryReader
-    (logger: TotopoLogger)
-    (configuration: Configuration)
-    (directory: string)
-    =
+let createCloudStorageClient (logger: TotopoLogger) =
     let storageClient =
         try
             StorageClient.Create() |> Some
         with e ->
             logger.Log(Error, "Failed to create Cloud Storage client: {message}", setField "message" e.Message)
             None
+    storageClient
 
+let createCloudDirectoryReader
+    (storageClient)
+    (logger: TotopoLogger)
+    (configuration: Configuration)
+    (directory: string)
+    =
     let remoteDirectory =
         ResourceDirectory.fromBucketUri directory configuration.ExternalResources.BucketBase
 
@@ -132,9 +135,11 @@ let main argv =
 
     let conf =
         serverConfig cts.Token configuration.HttpPort loggerFactory.SuaveLogger
+    
+    let storageClient = createCloudStorageClient logger
 
     let diskFileReaderFactory = createDiskDirectoryReader configuration
-    let cloudFileReaderFactory = createCloudDirectoryReader logger configuration
+    let cloudFileReaderFactory = createCloudDirectoryReader storageClient logger configuration
 
     let serveTemplateFromDisk =
         createLocalDiskTemplateServing configuration diskFileReaderFactory loggerFactory
