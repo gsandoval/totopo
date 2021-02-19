@@ -84,7 +84,7 @@ module RedirectHandler =
         + "'>"
         + "</noscript></head>"
         + "<body><script>"
-        + "var l /*window.location.href*/ = '"
+        + "window.location.href = '"
         + redirect
         + "' + (window.location.search || '') + (window.location.hash || '');"
         + "</script></body>"
