@@ -60,6 +60,10 @@ if [ $service_account_found -ne 0 ]; then
     --role="roles/iam.serviceAccountUser"
   die $? "Failed to grant permissions to Cloud Build to ${SERVICE_ACCOUNT_ID}."
   printf "Success.\n"
+
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member=serviceAccount:${SERVICE_ACCOUNT_NAME} \
+    --role=roles/logging.logWriter
 else
   printf "Skipping service account creation: ${SERVICE_ACCOUNT_ID} exists in project ${PROJECT_ID}.\n"
 fi

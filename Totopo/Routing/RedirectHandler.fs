@@ -20,53 +20,95 @@ open Legivel.Serialization
 open Suave
 open System.Text.RegularExpressions
 open Totopo.Filesystem
+open Totopo.Logging
 
 module RedirectHandler =
-    type RedirectOrigin = {
-        [<YamlField(Name = "Host")>] Host : string
-        [<YamlField(Name = "Path")>] Path : string
-    }
-    type RedirectDestination = {
-        [<YamlField(Name = "Url")>] Url : string
-    }
-    type RedirectConfiguration = {
-        [<YamlField(Name = "Origin")>] Origin : RedirectOrigin
-        [<YamlField(Name = "Destination")>] Destination : RedirectDestination
-    }
-    type RedirectConfigurationFile = {
-        [<YamlField(Name = "Redirects")>] Redirects   : RedirectConfiguration list
-    }
+    type RedirectOrigin =
+        { [<YamlField(Name = "Host")>]
+          Host: string
+          [<YamlField(Name = "Path")>]
+          Path: string }
 
-    let parseConfiguration (file: FileContents): RedirectConfigurationFile option =
+    type RedirectDestination =
+        { [<YamlField(Name = "Url")>]
+          Url: string }
+
+    type RedirectConfiguration =
+        { [<YamlField(Name = "Origin")>]
+          Origin: RedirectOrigin
+          [<YamlField(Name = "Destination")>]
+          Destination: RedirectDestination }
+
+    type RedirectConfigurationFile =
+        { [<YamlField(Name = "Redirects")>]
+          Redirects: RedirectConfiguration list }
+
+    let parseConfiguration (logger: TotopoLogger) (file: FileContents): RedirectConfigurationFile option =
         Deserialize<RedirectConfigurationFile> file.Text
         |> head
         |> function
-            | Success s -> Some s.Data
-            | Error e -> None
+        | Success s -> Some s.Data
+        | DeserializeResult.Error e ->
+            let message = e.Error.Head.Message
+            logger.Log(Error, "Failed to parse redirect configuration: {message}", setField "message" message)
+            None
 
     let findMatch (configs: RedirectConfigurationFile) (request: HttpRequest): string option =
         let checkMatch (found: string option) (redirect: RedirectConfiguration) =
             match found with
             | Some value -> Some value
             | None ->
-                let hostMatch = Regex.Match(request.host, redirect.Origin.Host).Success
-                let pathMatch = Regex.Match(request.path, redirect.Origin.Path).Success
-                match (hostMatch, pathMatch) with
-                | (true, true) -> Some redirect.Destination.Url
+                let hostMatch =
+                    Regex.Match(request.host, redirect.Origin.Host)
+
+                let pathMatch =
+                    Regex.Match(request.path, redirect.Origin.Path)
+
+                match (hostMatch.Success, pathMatch.Success) with
+                | (true, true) ->
+                    let matchedGroup = pathMatch.Groups.[0]
+
+                    let rest =
+                        request.path.Replace(matchedGroup.Value, "")
+                    
+                    Some(redirect.Destination.Url + rest)
                 | _ -> None
+
         fold checkMatch None configs.Redirects
 
-    let handle (fileReader: FileReader) (context: HttpContext): Async<HttpContext option> =
+    let buildRedirectPage (redirect: string) =
+        "<html>"
+        + "<head><noscript>"
+        + "<meta http-equiv='refresh' content='0; url="
+        + redirect
+        + "'>"
+        + "</noscript></head>"
+        + "<body><script>"
+        + "var l /*window.location.href*/ = '"
+        + redirect
+        + "' + (window.location.search || '') + (window.location.hash || '');"
+        + "</script></body>"
+        + "</html>"
+
+    let handle (logger: TotopoLogger) (fileReader: FileReader) (context: HttpContext): Async<HttpContext option> =
         async {
             try
-                let redirectsConfig = fileReader (FilePath "/redirect.yaml" )
-                let configuration = foldMap parseConfiguration redirectsConfig
+                let redirectsConfig = fileReader (FilePath "/redirect.yaml")
+
+                let configuration =
+                    foldMap (parseConfiguration logger) redirectsConfig
+
                 let matchRequest = foldMap findMatch configuration
+
                 let result =
                     match matchRequest context.request with
-                    | Some url -> Redirection.FOUND url context
+                    | Some r ->
+                        let page = buildRedirectPage r
+                        Successful.OK page context
                     | None -> Async.result None
+
                 return! result
             with e ->
+                logger.Log(Error, "Failed to handle redirect: {message}", setField "message" e.Message)
                 return! Async.result None
         }

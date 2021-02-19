@@ -89,6 +89,7 @@ let createCloudStorageClient (logger: TotopoLogger) =
         with e ->
             logger.Log(Error, "Failed to create Cloud Storage client: {message}", setField "message" e.Message)
             None
+
     storageClient
 
 let createCloudDirectoryReader
@@ -108,10 +109,7 @@ let createCloudDirectoryReader
 
     CachingFileReader.create cache remoteFileReader.ReadFile
 
-let createCloudStorageTemplateServing
-    (configuration: Configuration)
-    (cloudFileReaderFactory: string -> FileReader)
-    =
+let createCloudStorageTemplateServing (configuration: Configuration) (cloudFileReaderFactory: string -> FileReader) =
     let cachingFileReader = cloudFileReaderFactory "templates"
 
     let remoteTemplateLoader =
@@ -135,11 +133,13 @@ let main argv =
 
     let conf =
         serverConfig cts.Token configuration.HttpPort loggerFactory.SuaveLogger
-    
+
     let storageClient = createCloudStorageClient logger
 
     let diskFileReaderFactory = createDiskDirectoryReader configuration
-    let cloudFileReaderFactory = createCloudDirectoryReader storageClient logger configuration
+
+    let cloudFileReaderFactory =
+        createCloudDirectoryReader storageClient logger configuration
 
     let serveTemplateFromDisk =
         createLocalDiskTemplateServing configuration diskFileReaderFactory loggerFactory
@@ -175,8 +175,8 @@ let main argv =
 
     let redirectHandlers =
         match configuration.ServingStrategy with
-        | Local -> [ RedirectHandler.handle routingDiskReader ]
-        | Remote -> [ RedirectHandler.handle routingCloudReader ]
+        | Local -> [ RedirectHandler.handle logger routingDiskReader ]
+        | Remote -> [ RedirectHandler.handle logger routingCloudReader ]
 
     let templatePathErrorHandlers =
         List.map TemplateServing.handleError templatePathHandlers
