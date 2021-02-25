@@ -37,6 +37,11 @@ module ArgumentParser =
             timeout: string
         | [<CustomAppSettings "CloudProjectName"; CustomCommandLine "--cloud-project-name">] CloudProjectName of
             name: string
+        | [<CustomAppSettings "CloudResourceType"; CustomCommandLine "--cloud-resource-type">] CloudResourceType of
+            name: string
+        | [<CustomAppSettings "CloudJob"; CustomCommandLine "--cloud-job">] CloudJob of name: string option
+        | [<CustomAppSettings "CloudTaskId"; CustomCommandLine "--cloud-task-id">] CloudTaskId of name: string option
+        | [<CustomAppSettings "CloudLocation"; CustomCommandLine "--cloud-location">] CloudLocation of name: string option
         | [<CustomAppSettings "LoggingMinLevel"; CustomCommandLine "--logging-min-level">] LoggingMinLevel of
             level: string
         | [<CustomAppSettings "AlsoLogToConsole"; CustomCommandLine "--also-log-to-console">] AlsoLogToConsole of console: bool
@@ -52,6 +57,10 @@ module ArgumentParser =
                 | ResourcesCdnBaseUrl _ -> "CDN url for application resources."
                 | TemplateCachingTimeout _ -> "Maximum time a template should be kept in the cache."
                 | CloudProjectName _ -> "Cloud project name."
+                | CloudResourceType _ -> "Cloud resource type."
+                | CloudJob _ -> "Cloud job."
+                | CloudTaskId _ -> "Cloud task id."
+                | CloudLocation _ -> "Cloud location."
                 | LoggingMinLevel _ -> "Minimum logging level that is output."
                 | AlsoLogToConsole _ -> "Signal whether to log to console too. Defaults to false."
                 | ServingStrategy _ -> "Serving strategy; 'local' prioritizes local disk, 'remote' prioritizes Cloud storage. Defaults to 'remote'."
@@ -74,7 +83,7 @@ module ArgumentParser =
             ArgumentParser.Create<CliArguments>(programName = programName)
 
         let results =
-            argumentParser.Parse(argv, configurationReader = configurationReader, ignoreUnrecognized = true)
+            argumentParser.Parse(argv, configurationReader = configurationReader, ignoreUnrecognized = true, ignoreMissing = true)
 
         let httpPort = results.GetResult(HttpPort)
 
@@ -97,6 +106,10 @@ module ArgumentParser =
             TimeSpan.Parse(templateCachingTimeoutStr)
 
         let cloudProjectName = results.GetResult(CloudProjectName)
+        let cloudResourceType = results.GetResult(CloudResourceType)
+        let cloudJob = results.GetResult(CloudJob, None)
+        let cloudTaskId = results.GetResult(CloudTaskId, None)
+        let cloudLocation = results.GetResult(CloudLocation, None)
 
         let loggingMinLevel =
             Logging.LogLevel.ofString (results.GetResult(LoggingMinLevel))
@@ -117,7 +130,12 @@ module ArgumentParser =
               { BucketBase = resourcesBucket
                 CdnBase = resourcesCdn }
           TemplateCachingTimeout = templateCachingTimeout
-          CloudProjectName = cloudProjectName
+          CloudProject = 
+              { Name = cloudProjectName
+                ResourceType = cloudResourceType
+                Location = cloudLocation
+                Job = cloudJob
+                TaskId = cloudTaskId}
           LoggingMinLevel = loggingMinLevel
           AlsoLogToConsole = alsoLogToConsole
           ServingStrategy = servingStrategy }

@@ -50,7 +50,11 @@ module RedirectHandler =
         | Success s -> Some s.Data
         | DeserializeResult.Error e ->
             let message = e.Error.Head.Message
-            logger.Log(Error, "Failed to parse redirect configuration: {message}", setField "message" message)
+
+            logger
+                .At(Error)
+                .Log("Failed to parse redirect configuration: {message}", setField "message" message)
+
             None
 
     let findMatch (configs: RedirectConfigurationFile) (request: HttpRequest): string option =
@@ -70,7 +74,7 @@ module RedirectHandler =
 
                     let rest =
                         request.path.Replace(matchedGroup.Value, "")
-                    
+
                     Some(redirect.Destination.Url + rest)
                 | _ -> None
 
@@ -103,12 +107,24 @@ module RedirectHandler =
                 let result =
                     match matchRequest context.request with
                     | Some r ->
+                        logger
+                            .At(Info)
+                            .Log(
+                                "Redirecting {host}{path}",
+                                setField "host" context.request.host
+                                >> setField "path" context.request.path
+                            )
+
                         let page = buildRedirectPage r
                         Successful.OK page context
                     | None -> Async.result None
 
                 return! result
             with e ->
-                logger.Log(Error, "Failed to handle redirect: {message}", setField "message" e.Message)
+                logger
+                    .At(Error)
+                    .With(e)
+                    .Log("Failed to handle redirect: {message}", setField "message" e.Message)
+
                 return! Async.result None
         }

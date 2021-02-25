@@ -22,6 +22,7 @@ open System
 open System.Text.RegularExpressions
 open FSharpPlus.Operators
 open Totopo.Configuration
+open Totopo.Logging
 
 module TemplateServing =
     let rec generateAllPathsInTree (referencedBy: TemplatePath): TemplatePath list =
@@ -34,8 +35,11 @@ module TemplateServing =
     let rec generatePossibleReferencedPaths (referencedBy: TemplatePath list): TemplatePath list =
         match referencedBy with
         | [] -> [ TemplatePath.empty ]
-        | [current] -> generateAllPathsInTree current
-        | current :: rest -> current :: TemplatePath.parent current :: generatePossibleReferencedPaths rest
+        | [ current ] -> generateAllPathsInTree current
+        | current :: rest ->
+            current
+            :: TemplatePath.parent current
+               :: generatePossibleReferencedPaths rest
 
     let rec readAllTemplates
         (loader: TemplateLoader)
@@ -173,7 +177,12 @@ module TemplateServing =
             |> Some
         | None -> None
 
-    let serveTemplate (loader: TemplateLoader) (cdnBase: CdnBaseUrl) (context: HttpContext): Async<HttpContext option> =
+    let serveTemplate
+        (logger: TotopoLogger)
+        (loader: TemplateLoader)
+        (cdnBase: CdnBaseUrl)
+        (context: HttpContext)
+        : Async<HttpContext option> =
         async {
             try
                 let name = TemplatePath.fromRequest context.request
@@ -181,8 +190,26 @@ module TemplateServing =
 
                 return!
                     match rendered with
-                    | Some rendered -> Successful.OK rendered context
-                    | None -> Async.result None
+                    | Some rendered ->
+                        logger
+                            .At(Info)
+                            .Log(
+                                "Serving {host}{path}",
+                                setField "path" context.request.path
+                                >> setField "host" context.request.host
+                            )
+
+                        Successful.OK rendered context
+                    | None ->
+                        logger
+                            .At(Info)
+                            .Log(
+                                "Missed {host}{path}",
+                                setField "path" context.request.path
+                                >> setField "host" context.request.host
+                            )
+
+                        Async.result None
             with e ->
                 let errorList =
                     match context.userState.TryGetValue "errors" with
@@ -198,11 +225,17 @@ module TemplateServing =
                 return! Async.result None
         }
 
-    let handleError (templateServing: WebPart) (context: HttpContext) =
+    let handleError (logger: TotopoLogger) (templateServing: WebPart) (context: HttpContext) =
         async {
             let context =
                 match context.userState.TryGetValue "errors" with
                 | true, errorList ->
+                    let logError (err: TemplateServingError) =
+                        logger
+                            .At(Error)
+                            .With(err.InnerError)
+                            .Log("Failed to load template")
+
                     { context with
                           request =
                               { context.request with

@@ -20,10 +20,16 @@ type LoggerFactory(logName: string, minLogLevel: LogLevel, cloudSettings: CloudL
     let createRootLogger (rootLoggerName: string) (minLevel: LogLevel) =
         let name = [| rootLoggerName |]
 
-        let cloudLogger = [ GoogleCloudLoggerSuaveAdapter(name, minLevel, cloudSettings) :> Logger]
-        let consoleLogger = match logToConsole with | true -> [LiterateConsoleTarget(name, minLevel) :> Logger] | _ -> []
+        let cloudLogger =
+            [ GoogleCloudLoggerSuaveAdapter(name, minLevel, cloudSettings) :> Logger ]
 
-        let logger = CombiningTarget( name, [cloudLogger;  consoleLogger] |> List.concat ) :> Logger
+        let consoleLogger =
+            match logToConsole with
+            | true -> [ LiterateConsoleTarget(name, minLevel) :> Logger ]
+            | _ -> []
+
+        let logger =
+            CombiningTarget(name, [ cloudLogger; consoleLogger ] |> List.concat) :> Logger
 
         logger
 

@@ -50,12 +50,20 @@ type ExternalResourceUris = {
 
 type ServingStrategy = Local | Remote
 
+type CloudProject = {
+    Name: string
+    ResourceType: string
+    Location: string option
+    TaskId: string option
+    Job: string option
+}
+
 type Configuration =
     { HttpPort: Sockets.Port
       LocalResources: LocalResourcePaths
       ExternalResources: ExternalResourceUris
       TemplateCachingTimeout: TimeSpan
-      CloudProjectName: string
+      CloudProject: CloudProject
       LoggingMinLevel: Logging.LogLevel
       AlsoLogToConsole: bool
       ServingStrategy: ServingStrategy }

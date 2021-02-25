@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+open FSharp.Data
 open Google.Api
 open Google.Cloud.Logging.V2
 open Google.Cloud.Storage.V1
@@ -29,6 +30,21 @@ open Totopo.Routing
 open Totopo.Templates
 
 let createLoggerFactory configuration =
+    let getContainerMetadata metadataPath =
+        let url =
+            "http://metadata.google.internal" + metadataPath
+
+        let syncResult =
+            Http.AsyncRequestString(url, headers = [ "Metadata-Flavor", "Google" ])
+            |> Async.Catch
+            |> Async.RunSynchronously
+
+        match syncResult with
+        | Choice1Of2 result -> Some result
+        | Choice2Of2 err ->
+            printfn "%O" err
+            None
+
     let cloudClient =
         try
             LoggingServiceV2Client.Create() |> Some
@@ -36,10 +52,36 @@ let createLoggerFactory configuration =
             printfn "Failed to create Cloud Logging client %s" e.Message
             None
 
-    let monitoredResource = MonitoredResource(Type = "global")
+    let location =
+        let location = configuration.CloudProject.Location
+
+        let location =
+            Option.orElse (getContainerMetadata "/computeMetadata/v1/instance/region") location
+
+        Option.defaultValue "local-location" location
+
+    let job =
+        let job = configuration.CloudProject.Job
+        Option.defaultValue "local-job" job
+
+    let taskId =
+        let taskId = configuration.CloudProject.TaskId
+
+        let taskId =
+            Option.orElse (getContainerMetadata "/computeMetadata/v1/instance/id") taskId
+
+        Option.defaultValue "local-location" taskId
+
+    let monitoredResource =
+        MonitoredResource(Type = configuration.CloudProject.ResourceType)
+
+    monitoredResource.Labels.Add("projectId", configuration.CloudProject.Name)
+    monitoredResource.Labels.Add("location", location)
+    monitoredResource.Labels.Add("task_id", taskId)
+    monitoredResource.Labels.Add("job", job)
 
     let cloudSettings =
-        { ProjectName = configuration.CloudProjectName
+        { ProjectName = configuration.CloudProject.Name
           CloudClient = cloudClient
           MonitoredResource = monitoredResource
           FallbackMode = Console }
@@ -73,21 +115,27 @@ let createDiskDirectoryReader (configuration: Configuration) (directory: string)
 
     DiskReader.readFile localTemplatesDirectories
 
-let createLocalDiskTemplateServing (configuration: Configuration) (diskReader: string -> FileReader) loggerFactory =
-    let templateDiskReader = diskReader "templates"
-
+let createLocalDiskTemplateServing
+    (logger: TotopoLogger)
+    (configuration: Configuration)
+    (diskReader: FileReader)
+    =
     let diskTemplateLoader =
-        ComposeableTemplateLoader.readTemplate templateDiskReader
+        ComposeableTemplateLoader.readTemplate diskReader
 
     let cdnUri = getCdnBaseUri configuration
-    TemplateServing.serveTemplate diskTemplateLoader cdnUri
+    TemplateServing.serveTemplate logger diskTemplateLoader cdnUri
 
 let createCloudStorageClient (logger: TotopoLogger) =
     let storageClient =
         try
             StorageClient.Create() |> Some
         with e ->
-            logger.Log(Error, "Failed to create Cloud Storage client: {message}", setField "message" e.Message)
+            logger
+                .At(Error)
+                .With(e)
+                .Log("Failed to create Cloud Storage client: {message}", setField "message" e.Message)
+
             None
 
     storageClient
@@ -109,14 +157,16 @@ let createCloudDirectoryReader
 
     CachingFileReader.create cache remoteFileReader.ReadFile
 
-let createCloudStorageTemplateServing (configuration: Configuration) (cloudFileReaderFactory: string -> FileReader) =
-    let cachingFileReader = cloudFileReaderFactory "templates"
-
+let createCloudStorageTemplateServing
+    (logger: TotopoLogger)
+    (configuration: Configuration)
+    (cloudFileReader: FileReader)
+    =
     let remoteTemplateLoader =
-        ComposeableTemplateLoader.readTemplate cachingFileReader
+        ComposeableTemplateLoader.readTemplate cloudFileReader
 
     let cdnUri = getCdnBaseUri configuration
-    TemplateServing.serveTemplate remoteTemplateLoader cdnUri
+    TemplateServing.serveTemplate logger remoteTemplateLoader cdnUri
 
 [<EntryPoint>]
 let main argv =
@@ -127,7 +177,9 @@ let main argv =
 
     let logger = loggerFactory.Create()
 
-    logger.Log(Info, "Configuration loaded {configuration}", setField "configuration" configuration)
+    logger
+        .At(Info)
+        .Log("Configuration loaded {configuration}", setField "configuration" configuration)
 
     let cts = new CancellationTokenSource()
 
@@ -141,27 +193,30 @@ let main argv =
     let cloudFileReaderFactory =
         createCloudDirectoryReader storageClient logger configuration
 
-    let serveTemplateFromDisk =
-        createLocalDiskTemplateServing configuration diskFileReaderFactory loggerFactory
-
-    let serveTemplateFromCloudStorage =
-        createCloudStorageTemplateServing configuration cloudFileReaderFactory
-
-    let localResources = configuration.LocalResources
-
-    let serveApplicationResource =
-        Files.browse (LocalResourcePath.value localResources.ApplicationCustom)
-
-    let serveTotopoResource =
-        Files.browse (LocalResourcePath.value localResources.Totopo)
-
     let staticContentPathHandlers =
+        let localResources = configuration.LocalResources
+
+        let serveApplicationResource =
+            Files.browse (LocalResourcePath.value localResources.ApplicationCustom)
+
+        let serveTotopoResource =
+            Files.browse (LocalResourcePath.value localResources.Totopo)
+
         [ Filters.pathRegex "/static/.*"
           >=> serveApplicationResource
           Filters.pathRegex "/static/.*"
           >=> serveTotopoResource ]
 
     let templatePathHandlers =
+        let templateDiskReader = diskFileReaderFactory "templates"
+        let templateCloudReader = cloudFileReaderFactory "templates"
+
+        let serveTemplateFromDisk =
+            createLocalDiskTemplateServing logger configuration templateDiskReader
+
+        let serveTemplateFromCloudStorage =
+            createCloudStorageTemplateServing logger configuration templateCloudReader
+
         match configuration.ServingStrategy with
         | Local ->
             [ serveTemplateFromDisk
@@ -170,16 +225,17 @@ let main argv =
             [ serveTemplateFromCloudStorage
               serveTemplateFromDisk ]
 
-    let routingDiskReader = diskFileReaderFactory "routing"
-    let routingCloudReader = cloudFileReaderFactory "routing"
-
     let redirectHandlers =
+        let routingDiskReader = diskFileReaderFactory "routing"
+        let routingCloudReader = cloudFileReaderFactory "routing"
+
         match configuration.ServingStrategy with
         | Local -> [ RedirectHandler.handle logger routingDiskReader ]
         | Remote -> [ RedirectHandler.handle logger routingCloudReader ]
 
     let templatePathErrorHandlers =
-        List.map TemplateServing.handleError templatePathHandlers
+        let errorHandler = TemplateServing.handleError logger
+        List.map errorHandler templatePathHandlers
 
     let systemNotFoundHandler = RequestErrors.NOT_FOUND "Not found"
 
@@ -211,16 +267,18 @@ let main argv =
             | Some c -> c
             | None -> "missing stats"
 
-        logger.Log(Info, "Start stats: {stats}", (setField "stats" textStats))
+        logger
+            .At(Info)
+            .Log("Start stats: {stats}", (setField "stats" textStats))
 
     AppDomain.CurrentDomain.ProcessExit.Add
         (fun _ ->
-            logger.Log(Info, "Shutting down server")
+            logger.At(Info).Log("Shutting down server")
             cts.Cancel())
 
     Console.CancelKeyPress.Add
         (fun _ ->
-            logger.Log(Info, "Shutting down server")
+            logger.At(Info).Log("Shutting down server")
             cts.Cancel())
 
     serverTask.Wait()

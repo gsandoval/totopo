@@ -29,7 +29,6 @@ type GoogleStorageReader(storageClient: StorageClient option, logger: TotopoLogg
             ResourceDirectory.value directory
             + FilePath.value filename
 
-        logger.Log(Debug, "Attempting to read {filename}", setField "filename" fullPathStr)
         try
             let getOptions = GetObjectOptions()
 
@@ -55,7 +54,7 @@ type GoogleStorageReader(storageClient: StorageClient option, logger: TotopoLogg
             templateContent |> Some
         with
         | :? Responses.TokenResponseException as e ->
-            logger.Log(Warn, "Failed to read from bucket: {detail}", setField "detail" e.Message)
+            logger.At(Warn).With(e).Log("Failed to read from bucket: {detail}", setField "detail" e.Message)
             None
         | :? Google.GoogleApiException as e ->
             match e.HttpStatusCode with

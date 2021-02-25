@@ -51,39 +51,58 @@ module ExtraFields =
     let fileName = "<file_name>"
     let fileLine = "<file_line>"
     let functionName = "<function_name>"
+    let error = "<exception>"
+
+// generic_task
+// Generic Task	A generic task identifies an application process for which no more specific resource is applicable, such as a process scheduled by a custom orchestration system. The label values must uniquely identify the task.
+// 
+// project_id: The identifier of the GCP project associated with this resource, such as "my-project".
+// location: The GCP or AWS region in which data about the resource is stored. For example, "us-east1-a" (GCP) or "aws:us-east-1a" (AWS).
+// namespace: A namespace identifier, such as a cluster name.
+// job: An identifier for a grouping of related tasks, such as the name of a microservice or distributed batch job.
+// task_id: A unique identifier for the task within the namespace and job, such as a replica index identifying the task within the job.
+
+type LoggingContext =
+    { Logger: Logger
+      Severity: LogLevel
+      FileName: string
+      FileLine: int
+      FunctionName: string
+      Error: Exception option }
+    member this.With(error: Exception) =
+        { this with Error = Some error }
+
+    member private this.BuildEvent textPayload =
+        let event = eventX textPayload
+                        >> setField ExtraFields.fileName this.FileName
+                        >> setField ExtraFields.fileLine this.FileLine
+                        >> setField ExtraFields.functionName this.FunctionName
+        match this.Error with
+        | Some err -> event >> setField ExtraFields.error err
+        | None -> event
+
+    member this.Log(textPayload: string, messageModifier: Message -> Message) =
+        let event = this.BuildEvent textPayload
+        this.Logger.log this.Severity (event >> messageModifier)
+
+    member this.Log(textPayload: string) =
+        let event = this.BuildEvent textPayload
+        this.Logger.log this.Severity event
 
 type TotopoLogger(logger: Logger) =
-    member this.Log
+    member this.At
         (
             level: LogLevel,
-            textPayload: string,
-            messageModifier: Message -> Message,
             [<CallerMemberName; Optional; DefaultParameterValue("")>] memberName: string,
             [<CallerFilePath; Optional; DefaultParameterValue("")>] path: string,
             [<CallerLineNumber; Optional; DefaultParameterValue(0)>] line: int
-        ) =
-        logger.log
-            level
-            (eventX textPayload
-             >> setField ExtraFields.fileName path
-             >> setField ExtraFields.fileLine line
-             >> setField ExtraFields.functionName memberName
-             >> messageModifier)
-
-    member this.Log
-        (
-            level: LogLevel,
-            textPayload: string,
-            [<CallerMemberName; Optional; DefaultParameterValue("")>] memberName: string,
-            [<CallerFilePath; Optional; DefaultParameterValue("")>] path: string,
-            [<CallerLineNumber; Optional; DefaultParameterValue(0)>] line: int
-        ) =
-        logger.log
-            level
-            (eventX textPayload
-             >> setField ExtraFields.fileName path
-             >> setField ExtraFields.fileLine line
-             >> setField ExtraFields.functionName memberName)
+        ): LoggingContext =
+        { Logger = logger
+          Severity = level
+          FileName = path
+          FileLine = line
+          FunctionName = memberName
+          Error = None }
 
 type GoogleCloudLoggerSuaveAdapter(name: string array, minLevel: LogLevel, cloudSettings: CloudLoggingSettings) =
     let log (msg: Suave.Logging.Message) =
@@ -142,6 +161,10 @@ type GoogleCloudLoggerSuaveAdapter(name: string array, minLevel: LogLevel, cloud
 
         let severity = convertToCloudLevel msg.level
         let textPayload = formatMessage msg
+        let textPayload =
+            match msg.fields.TryFind ExtraFields.error with
+            | Some err -> textPayload + "\n" + err.ToString()
+            | None -> textPayload
 
         let fileName =
             Option.defaultValue ("" :> obj) (msg.fields.TryFind ExtraFields.fileName)
@@ -174,7 +197,9 @@ type GoogleCloudLoggerSuaveAdapter(name: string array, minLevel: LogLevel, cloud
 
         match cloudSettings.CloudClient with
         | Some cloudClient ->
-            cloudClient.WriteLogEntries(writeRequest) |> ignore
+            cloudClient.WriteLogEntries(writeRequest)
+            |> ignore
+
             None
         | None ->
             match cloudSettings.FallbackMode with
@@ -183,7 +208,7 @@ type GoogleCloudLoggerSuaveAdapter(name: string array, minLevel: LogLevel, cloud
                 None
             | Disabled -> None
         |> ignore
-        
+
 
     interface Logger with
         member x.name = name
