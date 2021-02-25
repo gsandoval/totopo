@@ -53,9 +53,9 @@ type ServingStrategy = Local | Remote
 type CloudProject = {
     Name: string
     ResourceType: string
-    Location: string option
-    TaskId: string option
-    Job: string option
+    Region: string option
+    Version: string option
+    Service: string option
 }
 
 type Configuration =

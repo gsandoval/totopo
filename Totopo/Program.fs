@@ -30,21 +30,6 @@ open Totopo.Routing
 open Totopo.Templates
 
 let createLoggerFactory configuration =
-    let getContainerMetadata metadataPath =
-        let url =
-            "http://metadata.google.internal" + metadataPath
-
-        let syncResult =
-            Http.AsyncRequestString(url, headers = [ "Metadata-Flavor", "Google" ])
-            |> Async.Catch
-            |> Async.RunSynchronously
-
-        match syncResult with
-        | Choice1Of2 result -> Some result
-        | Choice2Of2 err ->
-            printfn "%O" err
-            None
-
     let cloudClient =
         try
             LoggingServiceV2Client.Create() |> Some
@@ -52,33 +37,26 @@ let createLoggerFactory configuration =
             printfn "Failed to create Cloud Logging client %s" e.Message
             None
 
-    let location =
-        let location = configuration.CloudProject.Location
+    let region =
+        let region = configuration.CloudProject.Region
+        Option.defaultValue "local-region" region
 
-        let location =
-            Option.orElse (getContainerMetadata "/computeMetadata/v1/instance/region") location
+    let service =
+        let service = configuration.CloudProject.Service
+        Option.defaultValue "local-service" service
 
-        Option.defaultValue "local-location" location
-
-    let job =
-        let job = configuration.CloudProject.Job
-        Option.defaultValue "local-job" job
-
-    let taskId =
-        let taskId = configuration.CloudProject.TaskId
-
-        let taskId =
-            Option.orElse (getContainerMetadata "/computeMetadata/v1/instance/id") taskId
-
-        Option.defaultValue "local-location" taskId
+    let version =
+        let version = configuration.CloudProject.Version
+        Option.defaultValue "local-version" version
 
     let monitoredResource =
         MonitoredResource(Type = configuration.CloudProject.ResourceType)
 
     monitoredResource.Labels.Add("projectId", configuration.CloudProject.Name)
-    monitoredResource.Labels.Add("location", location)
-    monitoredResource.Labels.Add("task_id", taskId)
-    monitoredResource.Labels.Add("job", job)
+    monitoredResource.Labels.Add("location", region)
+    monitoredResource.Labels.Add("revision_name", version)
+    monitoredResource.Labels.Add("configuration_name", service)
+    monitoredResource.Labels.Add("service_name", service)
 
     let cloudSettings =
         { ProjectName = configuration.CloudProject.Name
@@ -86,7 +64,7 @@ let createLoggerFactory configuration =
           MonitoredResource = monitoredResource
           FallbackMode = Console }
 
-    LoggerFactory("totopo", configuration.LoggingMinLevel, cloudSettings, configuration.AlsoLogToConsole)
+    LoggerFactory("application", configuration.LoggingMinLevel, cloudSettings, configuration.AlsoLogToConsole)
 
 let serverConfig cancellationToken httpPort suaveLogger =
     let staticFilesDirectory =
